@@ -1,10 +1,10 @@
-import sys
+
 import math
-from pathlib import Path
+
 from colors import COMMON_COLORS
 
-def start():
-    path = Path(sys.argv[1])
+def start(path):
+    
 
     with open(path, "r") as file:
         hubs = {}
@@ -164,18 +164,3 @@ def start():
     print("-------------------")
     for from_hub, connection_data in connections.items():
         print(f"{from_hub} = {connection_data}")
-
-def main():
-
-    # start()
-
-    try:
-        start()
-    except ValueError as error:
-        print("You propabaly passed non-integers where you should pass integer, or misstructured the format")
-    except TypeError as error:
-        print(f"<<ERROR DETECTED>>: {error}")
-    except Exception as error:
-        print("misstructured the format")
-if __name__ == "__main__":
-    main()

@@ -1,166 +1,253 @@
-
 import math
-
 from colors import COMMON_COLORS
 
-def start(path):
-    
 
-    with open(path, "r") as file:
-        hubs = {}
-        hubs_names = {}
-        fields = []
-        valid_fields = ["nb_drones", "start_hub", "hub", "end_hub", "connection"]
-        valid_zones = ["normal", "blocked", "restricted", "priority"]
-        hubs_cords = []
-        edges = []
-        sorted_edges = []
-        connections = {}
-        nb_drones = 1
-        is_first_line = True
-        i = 1
-        j = 1
-        while True:
-            line = file.readline()
+class Parser:
 
-            if not line:
-                break
+    VALID_FIELDS = ["nb_drones", "start_hub", "hub", "end_hub", "connection"]
+    VALID_ZONES = ["normal", "blocked", "restricted", "priority"]
 
-            if "#" in line or not line.strip():
-                continue
+    def __init__(self, path):
 
-            field, content = line.split(":")
-            field = field.strip()
-            content = content.strip()
+        self.path = path
 
-            if not field:
-                raise TypeError("You didnt pass a field name ('nb_drones', 'start_hub', 'hub', 'end_hub', 'connection')")
-            if field not in fields:
-                fields.append(field)
-            elif field not in ("hub", "connection"):
-                print(f"Duplicated {field} detected, the field will be overritten and the program will continue")
-            if field == "nb_drones" and is_first_line:
-                nb_drones = int(content)
-                if nb_drones <= 0:
-                    print("nb_drones should be at least 1 or more, falling back to the default value 1")
-                    nb_drones = 1
-                is_first_line = False
-                continue
-            elif is_first_line:
-                raise TypeError("nb_drones should be the first field")
+        self.hubs = {}
+        self.hub_names = {}
+        self.connections = {}
+        self.neighbours = {}
 
-            if field in ("start_hub", "hub", "end_hub"):
-                parts = content.split()
+        self.fields = []
+        self.hub_coords = []
+        self.edges = []
+        self.sorted_edges = []
 
-                hub_name = parts[0]
-                if '-' in hub_name or ' ' in hub_name:
-                    raise TypeError("Hub names cannot contain dash '-' or space ' '")
+        self.nb_drones = 1
+        self.is_first_line = True
 
-                hub_data = {
-                    "name": hub_name,
-                    "x": int(parts[1]),
-                    "y": int(parts[2])
-                }
+        self.hub_idx = 1
+        self.connection_idx = 1
 
-                if hub_name in hubs_names.keys():
-                    raise TypeError("Hub names should be unique")
-                else:
-                    hubs_names[hub_name] = 0
+    def parse(self):
 
-                if (hub_data['x'], hub_data['y']) in hubs_cords or hub_data['x'] < 0 or hub_data['y'] < 0:
-                    raise TypeError("Hub coords should be unique and positive")
-                else:
-                    hubs_cords.append((hub_data['x'], hub_data['y']))
+        with open(self.path, "r") as file:
 
-                hub_metadata = {}
+            while True:
 
-                start = content.find("[")
-                end = content.find("]")
+                line = file.readline()
 
-                if start != -1 and end != -1:
-                    for item in content[start + 1:end].split():
-                        meta_key, meta_value = item.split("=")
-                        if meta_key == "max_drones":
-                            meta_value = int(meta_value)
-                            if meta_value <= 0:
-                                print("max_drones should be at least 1 or more, falling back to the default value 1")
-                                meta_value = 1
-                        elif meta_key == "zone" and meta_value not in valid_zones:
-                            raise TypeError(f"Zone type not recognized, use one of these {valid_zones}")
-                        hub_metadata[meta_key] = meta_value
+                if not line:
+                    break
 
-                hub_metadata.setdefault("zone", "normal")
-                hub_metadata.setdefault("color", "none")
-                hub_metadata.setdefault("max_drones", 1)
+                if "#" in line or not line.strip():
+                    continue
 
-                if field in ["start_hub", "end_hub"]:
-                   hub_metadata["max_drones"] = math.inf
+                field, content = line.split(":")
+                field = field.strip()
+                content = content.strip()
 
-                if hub_metadata['color'] not in COMMON_COLORS:
-                    raise TypeError(f"Color not recognized, use one of these {COMMON_COLORS}")
+                if not field:
+                    raise TypeError(
+                        f"You didnt pass a field name {Parser.VALID_FIELDS}"
+                    )
 
-                hub_data["metadata"] = hub_metadata
-                if field == "hub":
-                    hubs[f"{field}{i}"] = hub_data
-                    i += 1
-                else:
-                    hubs[field] = hub_data
+                if field not in self.fields:
+                    self.fields.append(field)
+                elif field not in ("hub", "connection"):
+                    print(
+                        f"Duplicated {field} detected, the field will"
+                        " be overwritten and the program will continue"
+                    )
 
-            elif field == "connection":
-                connection_data = {}
-                connection_metadata = {}
+                if field == "nb_drones" and self.is_first_line:
+                    self.nb_drones = int(content)
 
-                edge = content.split()[0]
+                    if self.nb_drones <= 0:
+                        print(
+                            "nb_drones should be at least 1 or more, "
+                            "falling back to the default value 1"
+                        )
+                        self.nb_drones = 1
 
-                if edge.count("-") != 1:
-                    raise TypeError("connection names cannot contain space ' ' or dash '-', insted they should be seperated by one")
+                    self.is_first_line = False
+                    continue
 
-                from_hub, to_hub = edge.split("-")
+                elif self.is_first_line:
+                    raise TypeError("nb_drones should be the first field")
 
-                if from_hub not in hubs_names.keys() or to_hub not in hubs_names.keys():
-                    raise TypeError("Edge name not found, or not declared yet")
+                if field in ("start_hub", "hub", "end_hub"):
+                    self._parse_hub(field, content)
 
-                start = content.find("[")
-                end = content.find("]")
+                elif field == "connection":
+                    self._parse_connection(content)
 
-                if start != -1 and end != -1:
-                    for item in content[start + 1:end].split():
-                        meta_key, meta_value = item.split("=", 1)
-                        
-                        if meta_key == "max_link_capacity":
-                            connection_metadata[meta_key] = int(meta_value)
-                            if int(meta_value) <= 0:
-                                print("max_link_capacity should be at least 1 or more, falling back to the default value 1")
-                                meta_value = 1
-                        connection_metadata[meta_key] = meta_value
+        self._validate()
 
-                connection_metadata.setdefault("max_link_capacity", 1)
+        return self.hubs, self.connections, self.nb_drones, self.neighbours
 
-                connection_data["from_hub"] = from_hub
-                connection_data["to_hub"] = to_hub
-                connection_data["metadata"] = connection_metadata
+    def _parse_hub(self, field, content):
+        parts = content.split()
 
-                connections[f"{field}{j}"] = connection_data
-                j += 1
+        hub_name = parts[0]
 
-                hubs_names[from_hub] += 1
-                hubs_names[to_hub] += 1
+        if "-" in hub_name or " " in hub_name:
+            raise TypeError("Hub names cannot contain dash '-' or space ' '")
 
-                edges.append((from_hub, to_hub))
-        if sorted(valid_fields) != sorted(fields):
-            raise TypeError(f"You missed on of these fields {valid_fields}")
-        for key, value in hubs_names.items():
-            if not value:
-                print(f"Pay attention the zone {key} is not used, but the program will continue")
-        for e in edges:
-            sorted_edges.append(sorted(e))
-        for e in sorted_edges:
-            if sorted_edges.count(e) > 1:
-                raise TypeError("The same connection must not appear more than once (e.g., a-b and b-a are considered duplicates)")
-    print("-------------------")
-    for hub_name, hub_data in hubs.items():
-        print(f"{hub_name} = {hub_data}")
+        hub_data = {
+            "name": hub_name,
+            "x": int(parts[1]),
+            "y": int(parts[2]),
+        }
 
-    print("-------------------")
-    for from_hub, connection_data in connections.items():
-        print(f"{from_hub} = {connection_data}")
+        if hub_name in self.hub_names:
+            raise TypeError("Hub names should be unique")
+
+        self.hub_names[hub_name] = 0
+
+        coords = (hub_data["x"], hub_data["y"])
+
+        if coords in self.hub_coords:
+            raise TypeError("Hub coords should be unique")
+
+        self.hub_coords.append(coords)
+
+        hub_metadata = {}
+
+        start = content.find("[")
+        end = content.find("]")
+
+        if start != -1 and end != -1:
+            for item in content[start + 1:end].split():
+                meta_key, meta_value = item.split("=")
+
+                if meta_key == "max_drones":
+                    meta_value = int(meta_value)
+
+                    if meta_value <= 0:
+                        print(
+                            "max_drones should be at least 1 or more, "
+                            "falling back to the default value 1"
+                        )
+                        meta_value = 1
+
+                elif meta_key == "zone":
+                    if meta_value not in self.VALID_ZONES:
+                        raise TypeError(
+                            "Zone type not recognized, "
+                            f"use one of these {self.VALID_ZONES}"
+                        )
+
+                hub_metadata[meta_key] = meta_value
+
+        hub_metadata.setdefault("zone", "normal")
+        hub_metadata.setdefault("color", "none")
+        hub_metadata.setdefault("max_drones", 1)
+
+        if field in ("start_hub", "end_hub"):
+            hub_metadata["max_drones"] = math.inf
+
+        if hub_metadata["color"] not in COMMON_COLORS:
+            raise TypeError(
+                f"Color not recognized, use one of these {COMMON_COLORS}"
+            )
+
+        hub_data["metadata"] = hub_metadata
+
+        if field == "hub":
+            self.hubs[f"hub{self.hub_idx}"] = hub_data
+            self.hub_idx += 1
+        else:
+            self.hubs[field] = hub_data
+
+    def _parse_connection(self, content):
+        connection_data = {}
+        connection_metadata = {}
+
+        edge = content.split()[0]
+
+        if edge.count("-") != 1:
+            raise TypeError(
+                "connection names cannot contain space ' ' or dash '-', "
+                "instead they should be separated by one"
+            )
+
+        from_hub, to_hub = edge.split("-")
+
+        if from_hub in self.neighbours:
+            self.neighbours[from_hub].add(to_hub)
+        else:
+            self.neighbours[from_hub] = {to_hub}
+
+        if to_hub in self.neighbours:
+            self.neighbours[to_hub].add(from_hub)
+        else:
+            self.neighbours[to_hub] = {from_hub}
+
+        if from_hub not in self.hub_names or to_hub not in self.hub_names:
+            raise TypeError("Edge name not found, or not declared yet")
+
+        start = content.find("[")
+        end = content.find("]")
+
+        if start != -1 and end != -1:
+            for item in content[start + 1:end].split():
+                meta_key, meta_value = item.split("=", 1)
+
+                if meta_key == "max_link_capacity":
+                    meta_value = int(meta_value)
+
+                    if meta_value <= 0:
+                        print(
+                            "max_link_capacity should be at least 1 or more, "
+                            "falling back to the default value 1"
+                        )
+                        meta_value = 1
+
+                connection_metadata[meta_key] = meta_value
+
+        connection_metadata.setdefault("max_link_capacity", 1)
+
+        connection_data["from_hub"] = from_hub
+        connection_data["to_hub"] = to_hub
+        connection_data["metadata"] = connection_metadata
+
+        self.connections[f"connection{self.connection_idx}"] = connection_data
+        self.connection_idx += 1
+
+        self.hub_names[from_hub] += 1
+        self.hub_names[to_hub] += 1
+
+        self.edges.append((from_hub, to_hub))
+
+    def _validate(self):
+        if sorted(self.VALID_FIELDS) != sorted(self.fields):
+            raise TypeError(
+                f"You missed one of these fields {self.VALID_FIELDS}"
+            )
+
+        for hub_name, count in self.hub_names.items():
+            if count == 0:
+                print(
+                    f"Pay attention the zone {hub_name} is not used, "
+                    "but the program will continue"
+                )
+
+        self.sorted_edges = [sorted(edge) for edge in self.edges]
+
+        for edge in self.sorted_edges:
+            if self.sorted_edges.count(edge) > 1:
+                raise TypeError(
+                    "The same connection must not appear more than once "
+                    "(e.g., a-b and b-a are considered duplicates)"
+                )
+
+    def print_data(self):
+
+        print(f"nb_drones: {self.nb_drones}")
+
+        print("-------------------")
+        for hub_name, hub_data in self.hubs.items():
+            print(f"{hub_name} = {hub_data}")
+
+        print("-------------------")
+        for connection_name, connection_data in self.connections.items():
+            print(f"{connection_name} = {connection_data}")

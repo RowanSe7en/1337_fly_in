@@ -1,71 +1,140 @@
 import sys
 from pathlib import Path
+from colors import COMMON_COLORS
 
-pa = Path(sys.argv[1])
+def start():
+    path = Path(sys.argv[1])
 
-with open(pa, 'r') as file:
+    with open(path, "r") as file:
+        hubs = {}
+        hubs_names = []
+        fields = []
+        valid_fields = ["nb_drones", "start_hub", "hub", "end_hub", "connection"]
+        hubs_cords = []
+        connections = {}
+        nb_drones = 1
+        is_first_line = True
+        i = 1
+        while True:
+            line = file.readline()
 
-    nodes_dict = {}
-    connections_dict = {}
-    nb_drones = 1
-    is_first_line = True
+            if not line:
+                break
 
+            if "#" in line or not line.strip():
+                continue
 
-    while True:
+            field, content = line.split(":")
+            field = field.strip()
+            content = content.strip()
 
-        my_line = file.readline()
+            if not field:
+                raise TypeError("You didnt pass a field name ('nb_drones', 'start_hub', 'hub', 'end_hub', 'connection')")
+            if field not in fields:
+                fields.append(field)
+            if field == "nb_drones" and is_first_line:
+                nb_drones = int(content)
+                is_first_line = False
+                continue
+            elif is_first_line:
+                raise TypeError("nb_drones should be the first field")
 
-        if not my_line:
-            break
-        if '#' in my_line or not my_line.strip():
-            continue
-        key = my_line.split(':')[0].strip()
-        value = my_line.split(':')[1].strip()
-        if key == "nb_drones" and is_first_line:
-            nb_drones = value
-            is_first_line = False
-        elif key == "nb_drones" and not is_first_line:
-            raise ValueError("nb_drones should be the first filed")
-        if key in ["start_hub", "hub", "end_hub"]:
-            key = value.strip().split(' ')[0]
-            start = value.find('[')
-            end = value.find(']')
-            new_value = value.strip().split(' ')[1::]
-            metadata_dict = {}
-            nodedata_dict = {}
-            nodedata_dict['x'] = int(new_value[0])
-            nodedata_dict['y'] = int(new_value[1])
-            if new_value[2]:
-                bracket_data = value[start + 1: end].split(' ')
-                for e in bracket_data:
-                    metakey = e.strip().split('=')[0]
-                    metavalue = e.strip().split('=')[1]
-                    metadata_dict[metakey] = metavalue
-                    nodedata_dict['metadata'] = metadata_dict
-            nodes_dict[key] = nodedata_dict
-            if not nodedata_dict['metadata'].get("zone", 0):
-                nodedata_dict['metadata']["zone"] = "normal"
-            if not nodedata_dict['metadata'].get("color", 0):
-                nodedata_dict['metadata']["color"] = "none"            
-            if not nodedata_dict['metadata'].get("max_drones", 0):
-                nodedata_dict['metadata']["max_drones"] = 1
-        elif key == "connection":
-            bidirectional = value.strip().split(' ')[0]
-            start = value.find('[')
-            end = value.find(']')
-            max_link_capacity = value[start + 1: end].split('=')[1]
-            if bidirectional.count('-') > 1:
-                raise ValueError("name cannot have dash in it")
-            key = bidirectional.strip().split('-')[0]
-            value_dict = {} 
-            value_dict['to'] = bidirectional.strip().split('-')[1]
-            value_dict['max_link_capacity'] = max_link_capacity
-            connections_dict[key] = value_dict
+            if field in ("start_hub", "hub", "end_hub"):
+                parts = content.split()
 
-print(nb_drones)
+                hub_name = parts[0]
+                if '-' in hub_name:
+                    raise TypeError("Hub names cannot contain '-'")
 
-for key, value in nodes_dict.items():
-    print(f"{key} = {value}")
-print("-------------------")
-for key, value in connections_dict.items():
-    print(f"{key} = {value}")
+                hub_data = {
+                    "name": hub_name,
+                    "x": int(parts[1]),
+                    "y": int(parts[2])
+                }
+
+                if hub_name in hubs_names:
+                    raise TypeError("Hub names should be unique")
+                else:
+                    hubs_names.append(hub_name)
+
+                if (hub_data['x'], hub_data['y']) in hubs_cords:
+                    raise TypeError("Hub coords should be unique")
+                else:
+                    hubs_cords.append((hub_data['x'], hub_data['y']))
+
+                hub_metadata = {}
+
+                start = content.find("[")
+                end = content.find("]")
+
+                if start != -1 and end != -1:
+                    for item in content[start + 1:end].split():
+                        meta_key, meta_value = item.split("=")
+                        if meta_key == "max_drones":
+                            meta_value = int(meta_value)
+                        hub_metadata[meta_key] = meta_value
+
+                hub_metadata.setdefault("zone", "normal")
+                hub_metadata.setdefault("color", "none")
+                hub_metadata.setdefault("max_drones", 1)
+
+                if hub_metadata['color'] not in COMMON_COLORS:
+                    raise TypeError(f"Color not recognized, use one of these {COMMON_COLORS}")
+
+                hub_data["metadata"] = hub_metadata
+                if field == "hub":
+                    hubs[f"{field}{i}"] = hub_data
+                    i += 1
+                else:
+                    hubs[field] = hub_data
+
+            elif field == "connection":
+                connection_data = {}
+                connection_metadata = {}
+
+                edge = content.split()[0]
+
+                if edge.count("-") != 1:
+                    raise TypeError("connection names cannot contain '-', insted they should be seperated by one")
+
+                from_hub, to_hub = edge.split("-")
+
+                start = content.find("[")
+                end = content.find("]")
+
+                if start != -1 and end != -1:
+                    for item in content[start + 1:end].split():
+                        meta_key, meta_value = item.split("=", 1)
+                        
+                        if meta_key == "max_link_capacity":
+                            connection_metadata[meta_key] = int(meta_value)
+                        connection_metadata[meta_key] = meta_value
+
+                connection_metadata.setdefault("max_link_capacity", 1)
+
+                connection_data["to_hub"] = to_hub
+                connection_data["metadata"] = connection_metadata
+
+                connections[from_hub] = connection_data
+        if sorted(valid_fields) != sorted(fields):
+            raise TypeError(f"You missed on of these fields {valid_fields}")
+    print("-------------------")
+    for hub_name, hub_data in hubs.items():
+        print(f"{hub_name} = {hub_data}")
+
+    print("-------------------")
+    for from_hub, connection_data in connections.items():
+        print(f"{from_hub} = {connection_data}")
+
+def main():
+
+    try:
+        start()
+    except ValueError as error:
+        print("You propabaly passed non-integers where you should pass integer, or misstructured the format")
+    except TypeError as error:
+        print(error)
+    except Exception as error:
+        print("misstructured the format")
+if __name__ == "__main__":
+    main()

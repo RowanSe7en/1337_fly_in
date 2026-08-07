@@ -11,10 +11,69 @@ class Algo:
 
         self.unvisited = [v['name'] for v in self.hubs.values()]
 
+        # print(self.unvisited)
+
         short_path_dict = {}
 
         for e in self.unvisited:
             short_path_dict[e] = (math.inf, "none")
         short_path_dict[start_hub] = (0, "none")
 
-        print(self.neighbours)
+        # print(short_path_dict)
+        # print(self.neighbours)
+
+        initiate_neighbours = list(self.neighbours[start_hub])
+        from_hub = start_hub
+
+        # print(initiate_neighbours)
+
+        cost = 0
+
+        self.unvisited.remove(start_hub)
+        # print("ggggggggggggggggggggggggggggggggg")
+        i = 0
+
+        while initiate_neighbours:
+            i +=1
+
+            for zone in initiate_neighbours:
+                if zone in self.unvisited:
+                    # print(f"A: {i} {self.unvisited} {zone}")
+                    # print(self.hubs)
+                    for hub_data in self.hubs.values():
+                        if hub_data['name'] == zone:
+                            if hub_data['metadata']['zone'] in ["normal", "priority"]:
+                                cost += 1
+                                break
+                            elif hub_data['metadata']['zone'] == "restricted":
+                                cost += 2
+                                break
+
+                    short_path_dict[zone] = (cost, from_hub)
+                
+
+            lower_cost_zone_value = math.inf
+            lower_cost_zone_name = ""
+
+            for zone in initiate_neighbours:
+                if zone in self.unvisited and lower_cost_zone_value > short_path_dict[zone][0]:
+                    # print(f"B: {i} {self.unvisited} {zone}")
+                    lower_cost_zone_value = short_path_dict[zone][0]
+                    lower_cost_zone_name = zone
+                    # print(f"C: {i} {zone}")
+                    self.unvisited.remove(zone)
+            from_hub = lower_cost_zone_name
+            
+            if not lower_cost_zone_name or lower_cost_zone_name == self.hubs['end_hub']['name']:
+                break
+            else:
+                initiate_neighbours = list(self.neighbours[lower_cost_zone_name])
+        print(short_path_dict)
+        short_path = []
+        a = self.hubs['end_hub']['name']
+        short_path.append(a)
+        while a != start_hub:
+            short_path.append(short_path_dict[a][1])
+            a = short_path_dict[a][1]
+        short_path.reverse()
+        print(short_path)

@@ -24,8 +24,8 @@ def main():
     except TypeError as error:
         print(f"<<ERROR DETECTED>>: {error}")
 
-    except Exception:
-        print("Misstructured file format.")
+    # except Exception:
+    #     print("Misstructured file format.")
 
 
 if __name__ == "__main__":

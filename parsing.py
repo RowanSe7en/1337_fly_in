@@ -173,14 +173,14 @@ class Parser:
         from_hub, to_hub = edge.split("-")
 
         if from_hub in self.neighbours:
-            self.neighbours[from_hub].add(to_hub)
+            self.neighbours[from_hub].append(to_hub)
         else:
-            self.neighbours[from_hub] = {to_hub}
+            self.neighbours[from_hub] = [to_hub]
 
         if to_hub in self.neighbours:
-            self.neighbours[to_hub].add(from_hub)
+            self.neighbours[to_hub].append(from_hub)
         else:
-            self.neighbours[to_hub] = {from_hub}
+            self.neighbours[to_hub] = [from_hub]
 
         if from_hub not in self.hub_names or to_hub not in self.hub_names:
             raise TypeError("Edge name not found, or not declared yet")

@@ -1,4 +1,5 @@
 import math
+import heapq
 
 class Algo:
 
@@ -11,7 +12,7 @@ class Algo:
 
         self.unvisited = [v['name'] for v in self.hubs.values()]
 
-        # print(self.unvisited)
+        print(self.unvisited)
 
         short_path_dict = {}
 
@@ -20,12 +21,12 @@ class Algo:
         short_path_dict[start_hub] = (0, "none")
 
         # print(short_path_dict)
-        # print(self.neighbours)
+        print(self.neighbours)
 
         initiate_neighbours = list(self.neighbours[start_hub])
         from_hub = start_hub
 
-        # print(initiate_neighbours)
+        print(initiate_neighbours)
 
         cost = 0
 
@@ -43,26 +44,47 @@ class Algo:
                     for hub_data in self.hubs.values():
                         if hub_data['name'] == zone:
                             if hub_data['metadata']['zone'] in ["normal", "priority"]:
-                                cost += 1
+                                cost = 1
                                 break
                             elif hub_data['metadata']['zone'] == "restricted":
-                                cost += 2
+                                cost = 2
                                 break
 
-                    short_path_dict[zone] = (cost, from_hub)
-                
+                    if zone in short_path_dict:
+                        if short_path_dict[zone][0] > short_path_dict[from_hub][0] + cost:
+                            short_path_dict[zone] = (short_path_dict[from_hub][0] + cost, from_hub)
+                    else:
+                        short_path_dict[zone] = (short_path_dict[from_hub][0] + cost, from_hub)
 
-            lower_cost_zone_value = math.inf
-            lower_cost_zone_name = ""
 
-            for zone in initiate_neighbours:
-                if zone in self.unvisited and lower_cost_zone_value > short_path_dict[zone][0]:
-                    # print(f"B: {i} {self.unvisited} {zone}")
-                    lower_cost_zone_value = short_path_dict[zone][0]
-                    lower_cost_zone_name = zone
-                    # print(f"C: {i} {zone}")
-                    if from_hub != start_hub:
-                        self.unvisited.remove(from_hub)
+
+            heap = []
+
+            for zone, (cost, from_hub) in short_path_dict.items():
+                if zone in self.unvisited:
+                    heapq.heappush(heap, (cost, from_hub, zone))
+
+            smallest_cost, from_hub, lower_cost_zone_name = heapq.heappop(heap)
+            # if from_hub != start_hub:
+            self.unvisited.remove(lower_cost_zone_name)
+            print(f"{i} {lower_cost_zone_name}")
+
+
+
+            # print("tttttttttttttt")
+
+
+            # lower_cost_zone_value = math.inf
+            # lower_cost_zone_name = ""
+
+            # for zone in initiate_neighbours:
+            #     if zone in self.unvisited and lower_cost_zone_value > short_path_dict[zone][0]:
+            #         # print(f"B: {i} {self.unvisited} {zone}")
+            #         lower_cost_zone_value = short_path_dict[zone][0]
+            #         lower_cost_zone_name = zone
+            #         # print(f"C: {i} {zone}")
+            #         if from_hub != start_hub:
+            #             self.unvisited.remove(from_hub)
             from_hub = lower_cost_zone_name
             
             if not lower_cost_zone_name or lower_cost_zone_name == self.hubs['end_hub']['name']:

@@ -61,7 +61,8 @@ class Algo:
                     lower_cost_zone_value = short_path_dict[zone][0]
                     lower_cost_zone_name = zone
                     # print(f"C: {i} {zone}")
-                    self.unvisited.remove(zone)
+                    if from_hub != start_hub:
+                        self.unvisited.remove(from_hub)
             from_hub = lower_cost_zone_name
             
             if not lower_cost_zone_name or lower_cost_zone_name == self.hubs['end_hub']['name']:

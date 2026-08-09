@@ -1,5 +1,6 @@
 import math
 import heapq
+from drones import drones_list
 
 class Algo:
 
@@ -8,30 +9,25 @@ class Algo:
 
         self.hubs, self.connections, self.nb_drones, self.neighbours = self.data
 
-        start_hub = self.hubs['start_hub']['name']
+        self.start_hub = self.hubs['start_hub']['name']
+        self.end_hub = self.hubs['end_hub']['name']
 
         self.unvisited = [v['name'] for v in self.hubs.values()]
 
-        print(self.unvisited)
+    def find_the_shortest_path(self):
 
         short_path_dict = {}
 
         for e in self.unvisited:
             short_path_dict[e] = (math.inf, "none")
-        short_path_dict[start_hub] = (0, "none")
+        short_path_dict[self.start_hub] = (0, "none")
 
-        # print(short_path_dict)
-        print(self.neighbours)
-
-        initiate_neighbours = list(self.neighbours[start_hub])
-        from_hub = start_hub
-
-        print(initiate_neighbours)
+        initiate_neighbours = list(self.neighbours[self.start_hub])
+        from_hub = self.start_hub
 
         cost = 0
 
-        self.unvisited.remove(start_hub)
-        # print("ggggggggggggggggggggggggggggggggg")
+        self.unvisited.remove(self.start_hub)
         i = 0
 
         while initiate_neighbours:
@@ -39,8 +35,6 @@ class Algo:
 
             for zone in initiate_neighbours:
                 if zone in self.unvisited:
-                    # print(f"A: {i} {self.unvisited} {zone}")
-                    # print(self.hubs)
                     for hub_data in self.hubs.values():
                         if hub_data['name'] == zone:
                             if hub_data['metadata']['zone'] in ["normal", "priority"]:
@@ -65,13 +59,11 @@ class Algo:
                     heapq.heappush(heap, (cost, from_hub, zone))
 
             smallest_cost, from_hub, lower_cost_zone_name = heapq.heappop(heap)
-            # if from_hub != start_hub:
+            # if from_hub != self.start_hub:
             self.unvisited.remove(lower_cost_zone_name)
-            print(f"{i} {lower_cost_zone_name}")
 
 
 
-            # print("tttttttttttttt")
 
 
             # lower_cost_zone_value = math.inf
@@ -79,24 +71,32 @@ class Algo:
 
             # for zone in initiate_neighbours:
             #     if zone in self.unvisited and lower_cost_zone_value > short_path_dict[zone][0]:
-            #         # print(f"B: {i} {self.unvisited} {zone}")
             #         lower_cost_zone_value = short_path_dict[zone][0]
             #         lower_cost_zone_name = zone
-            #         # print(f"C: {i} {zone}")
-            #         if from_hub != start_hub:
+            #         if from_hub != self.start_hub:
             #             self.unvisited.remove(from_hub)
             from_hub = lower_cost_zone_name
             
-            if not lower_cost_zone_name or lower_cost_zone_name == self.hubs['end_hub']['name']:
+            if not lower_cost_zone_name or lower_cost_zone_name == self.end_hub:
                 break
             else:
                 initiate_neighbours = list(self.neighbours[lower_cost_zone_name])
-        print(short_path_dict)
-        short_path = []
-        a = self.hubs['end_hub']['name']
-        short_path.append(a)
-        while a != start_hub:
-            short_path.append(short_path_dict[a][1])
+        self.short_path = []
+        a = self.end_hub
+        self.short_path.append(a)
+        while a != self.start_hub:
+            self.short_path.append(short_path_dict[a][1])
             a = short_path_dict[a][1]
-        short_path.reverse()
-        print(short_path)
+        self.short_path.reverse()
+        print(self.short_path)
+
+    def ecah_drone_path_assigner(self):
+
+        turn = 1
+        turnes = [(turn, [n['name'] for n in self.hubs.values() if n['name'] not in  [self.start_hub, self.end_hub]])]
+        print(turnes)
+
+        for drone in drones_list:
+            if self.short_path[0] in turnes[turn - 1][1]:
+                
+

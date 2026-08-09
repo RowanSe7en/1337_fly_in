@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 from parsing import Parser
 from algo_start import Algo
+from drones import Drone, drone_creator
 
 
 def main():
@@ -12,8 +13,6 @@ def main():
         parser = Parser(path)
         data = parser.parse()
         # parser.print_data()
-
-        algo = Algo(data)
 
     except ValueError:
         print(
@@ -27,6 +26,27 @@ def main():
     # except Exception:
     #     print("Misstructured file format.")
 
+
+
+
+
+
+
+
+
+
+
+
+    try:
+        algo = Algo(data)
+        algo.find_the_shortest_path()
+
+        drone_creator(algo.nb_drones)
+        algo.ecah_drone_path_assigner()
+
+    
+    except Exception as error:
+        print(f"<<ERROR DETECTED>>: {error}")
 
 if __name__ == "__main__":
     main()

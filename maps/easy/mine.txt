@@ -5,10 +5,14 @@ start_hub: start 0 0 [color=green]
 hub: waypoint1 1 0 [color=red max_drones=1]
 hub: waypoint2 2 0 [zone=restricted color=red max_drones=1]
 hub: waypoint3 2 1  [zone=restricted color=red max_drones=1]
+hub: waypoint4 4 1  [zone=restricted color=red max_drones=1]
+hub: waypoint5 5 1  [color=red max_drones=1]
 end_hub: goal 3 0 [color=red]
 
 connection: start-waypoint1
 connection: start-waypoint3
 connection: waypoint1-waypoint2
-connection: waypoint2-goal
-connection: waypoint3-goal
+connection: waypoint2-waypoint4
+connection: waypoint4-goal
+connection: waypoint3-waypoint5
+connection: waypoint5-goal

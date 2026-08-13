@@ -33,20 +33,24 @@ def main():
 
 
 
+    algo = Algo(data)
+    algo.find_the_shortest_path()
+
+    drone_creator(algo.nb_drones)
+    algo.ecah_drone_path_assigner()
 
 
 
+    # try:
+    #     algo = Algo(data)
+    #     algo.find_the_shortest_path()
 
-    try:
-        algo = Algo(data)
-        algo.find_the_shortest_path()
-
-        drone_creator(algo.nb_drones)
-        algo.ecah_drone_path_assigner()
+    #     drone_creator(algo.nb_drones)
+    #     algo.ecah_drone_path_assigner()
 
     
-    except Exception as error:
-        print(f"<<ERROR DETECTED>>: {error}")
+    # except Exception as error:
+    #     print(f"<<ERROR DETECTED>>: {error}")
 
 if __name__ == "__main__":
     main()

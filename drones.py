@@ -4,6 +4,7 @@ class Drone:
 
         self.id = id
         self.path = []
+        self.start_turn = -1 
 
 drones_list = []
 

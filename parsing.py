@@ -145,10 +145,10 @@ class Parser:
         if field in ("start_hub", "end_hub"):
             hub_metadata["max_drones"] = math.inf
 
-        if hub_metadata["color"] not in COMMON_COLORS:
-            raise TypeError(
-                f"Color not recognized, use one of these {COMMON_COLORS}"
-            )
+        # if hub_metadata["color"] not in COMMON_COLORS:
+        #     raise TypeError(
+        #         f"Color not recognized, use one of these {COMMON_COLORS}"
+        #     )
 
         hub_data["metadata"] = hub_metadata
 

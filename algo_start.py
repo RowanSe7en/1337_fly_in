@@ -249,9 +249,11 @@ class Algo:
                                     break
                             drone.start_turn = turn + added_new_cost
                             print("hi4")
-                            looking_for_path[0] += added_new_cost
+                            print("added_new_cost", added_new_cost)
+                            
                             drone.path = looking_for_path[1]
                             turn = drone.start_turn
+                            print("drone.start_turn", drone.start_turn)
                             # for path in drone.path:
                             #     print("a")
                             #     for k, v in self.hubs.items():
@@ -275,25 +277,27 @@ class Algo:
                             #         print(turnes)
                             #     turn += 1
                             for path in drone.path:
+                                added_turns = 0
                                 if len(turnes) < turn:
                                     turnes.append((turn, [n['name'] for n in self.hubs.values() if n['name'] not in [self.start_hub]]))
-                                turnes[turn - 1][1].remove(path)
-                                print(turnes)
+                                if path in turnes[turn - 1][1]:
+                                    turnes[turn - 1][1].remove(path)
+                                    print("---------remove(path)1:", path, "from", turn)
+                                else:
+                                    while True:
+                                        i = drone.path.index(path)
+                                        drone.path.insert(i, drone.path[i - 1])
+                                        print("---------drone.path[i - 1]", drone.path[i - 1], "from", turn)
+                                        turnes[turn - 1][1].remove(drone.path[i - 1])
+                                        turn += 1
+                                        added_turns += 1
+                                        if path in turnes[turn - 1][1]:
+                                            break
+                                # print(turnes)
+                                turn -= added_turns
                                 turn += 1
-
+                            looking_for_path[0] = added_new_cost + len(drone.path) + 1
                             break
-
-
-
-
-
-
-
-
-
-
-
-
 
                 else:
                     turnes.append((turn, [n['name'] for n in self.hubs.values() if n['name'] not in  [self.start_hub]]))
@@ -312,3 +316,4 @@ class Algo:
             print("drone.start_turn", drone.start_turn)
             print("self.all_paths:", self.all_paths)
             print("-------------------------------------")
+            print(turnes[-1][0] + 1)

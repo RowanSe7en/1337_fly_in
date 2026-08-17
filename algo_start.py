@@ -112,7 +112,7 @@ class Algo:
             if v['name'] == zone:
                 return v['metadata']['zone']
 
-    return None
+        return None
 
     def _process_zone(self, drone, zone, turn, turnes):
         if zone in turnes[turn - 1][1]:

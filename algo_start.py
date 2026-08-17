@@ -37,15 +37,23 @@ class Algo:
             i +=1
 
             for zone in initiate_neighbours:
+                is_blocked = 0
                 if zone in self.unvisited:
                     for hub_data in self.hubs.values():
                         if hub_data['name'] == zone:
-                            if hub_data['metadata']['zone'] in ["normal", "priority"]:
+                            if hub_data['metadata']['zone'] == "blocked":
+                                print("blocked")
+                                is_blocked = 1
+                                break
+                            elif hub_data['metadata']['zone'] in ["normal", "priority"]:
                                 cost = 1
                                 break
                             elif hub_data['metadata']['zone'] == "restricted":
                                 cost = 2
                                 break
+
+                    if is_blocked:
+                        continue
 
                     if zone in self.short_path_dict:
                         if self.short_path_dict[zone][0] > self.short_path_dict[from_hub][0] + cost:
@@ -79,6 +87,7 @@ class Algo:
         self.short_path.reverse()
         self.short_path.remove(self.start_hub)
         self.short_path.remove(self.end_hub)
+        print(self.short_path)
 
     def ecah_drone_path_assigner(self):
 
@@ -91,15 +100,17 @@ class Algo:
             for zone in self.short_path:
                 turn += 1
                 if len(turnes) >= turn:
+                    print("qqqqqqq", turn)
                     if zone in turnes[turn - 1][1]:
                         drone.start_turn = turn
                         print("hi1")
                         for k, v in self.hubs.items():
                             if v['name'] == zone:
+                                print("zone", zone)
                                 zone_name = v['metadata']['zone']
                         if zone_name == "restricted":
                             stay = 2
-                        elif zone_name == "normal":
+                        else:
                             stay = 1
                         for i in range(stay):
                             drone.path.append(zone)
@@ -107,10 +118,14 @@ class Algo:
                                 turn += 1
                                 turnes.append((turn, [n['name'] for n in self.hubs.values() if n['name'] not in  [self.start_hub]]))
                             turnes[turn - 1][1].remove(zone)
+                        print("drone.path gggggg", drone.path)
                     else:
                         is_found = 0
                         for e in self.neighbours[self.short_path_dict[zone][1]]:
-                            if e in turnes[turn - 1][1]:
+                            for k, v in self.hubs.items():
+                                if v['name'] == zone:
+                                    zone_name = v['metadata']['zone']
+                            if e in turnes[turn - 1][1] and zone_name != "blocked":
                                 is_found = 1
                                 break
                         if is_found:

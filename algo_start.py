@@ -316,8 +316,24 @@ class Algo:
 
                 else:
                     turnes.append((turn, [n['name'] for n in self.hubs.values() if n['name'] not in  [self.start_hub]]))
-                    drone.path.append(zone)
-                    turnes[turn - 1][1].remove(zone)
+                    if zone in turnes[turn - 1][1]:
+                        drone.start_turn = turn
+                        print("hi1")
+                        for k, v in self.hubs.items():
+                            if v['name'] == zone:
+                                print("zone", zone)
+                                zone_name = v['metadata']['zone']
+                        if zone_name == "restricted":
+                            stay = 2
+                        else:
+                            stay = 1
+                        for i in range(stay):
+                            drone.path.append(zone)
+                            if i >= 1:
+                                turn += 1
+                                turnes.append((turn, [n['name'] for n in self.hubs.values() if n['name'] not in  [self.start_hub]]))
+                            turnes[turn - 1][1].remove(zone)
+                        print("drone.path gggggg", drone.path)
                 # print(turnes)
             can_i_add = 1
             for e in self.all_paths:

@@ -1,85 +1,149 @@
-from tkinter import *
+from tkinter import Tk, Canvas, PhotoImage
 
-window = Tk()
 
-window.title("Fly-in")
-# window.geometry("1600x900")
-window.attributes("-zoomed", True)
-window.config(bg="#021738")
-window.update()
-w = window.winfo_width()
-h = window.winfo_height()
+class Display:
 
-canvas = Canvas(window, width=w, height=h, bg="#021738")
-canvas.pack()
+    def __init__(self, data):
+        self.window = Tk()
 
-icon = PhotoImage(file="drone.png")
-window.iconphoto(True, icon)
+        self.window.title("Fly-in")
+        self.window.attributes("-zoomed", True)
+        self.window.config(bg="#021738")
 
-def mainloop(data):
-    hubs, connections, nb_drones, neighbours = data
-    cords = {}
-    x_cords = []
-    y_cords = []
-    for v in hubs.values():
-        cords[v['name']] = {"x": v['x'], "y": v['y']}
-        x_cords.append(v['x'])
-        y_cords.append(v['y'])
-    print(cords)
-    x_range = abs(max(x_cords) - min(x_cords)) + 1
-    y_range = abs(max(y_cords) - min(y_cords)) + 1
-    x_cords.sort()
-    y_cords.sort()
-    print(x_cords)
-    print(y_cords)
-    print(x_range)
-    print(y_range)
-    x_unit = int(w / x_range)
-    y_unit = int(h / y_range)
-    zone_width = min([x_unit, y_unit]) / 2
-    print(x_unit)
-    print(y_unit)
-    print(zone_width)
-    x_new_cords = {}
-    x = 0
-    for i in range(min(x_cords), max(x_cords) + 1):
-        if i in x_cords:
-            x_new_cords[i] = x * x_unit
-        x+=1
-    print(x_new_cords)
-    y_new_cords = {}
-    x = 0
-    for i in range(min(y_cords), max(y_cords) + 1):
-        if i in y_cords:
-            y_new_cords[i] = x * y_unit
-        x+=1
-    print(y_new_cords)
-    canvas_objs = {}
-    for k, v in cords.items():
-        x = x_new_cords[v['x']]
-        y = y_new_cords[v['y']]
-        canvas_obj = canvas.create_oval(x, y, x+zone_width, y+zone_width, fill="red")
-        canvas_objs[k] = canvas_obj
-    print(canvas_objs)
-    for k, v in canvas_objs.items():
-        print(k, canvas.coords(v))
-    print("-------------------")
-    connections_coords = {}
-    for k, v in connections.items():
-        from_hub = canvas.coords(canvas_objs[v['from_hub']])
-        fx = from_hub[1] + ((from_hub[3] - from_hub[1]) / 2)
-        fy = from_hub[0] + ((from_hub[2] - from_hub[0]) / 2)
-        to_hub = canvas.coords(canvas_objs[v['to_hub']])
-        tx = to_hub[1] + ((to_hub[3] - to_hub[1]) / 2)
-        ty = to_hub[0] + ((to_hub[2] - to_hub[0]) / 2)
-        connections_coords[k] = {"fx": fx , "fy": fy, "tx": tx, "ty": ty}
-    print(connections_coords)
-    for k, v in connections_coords.items():
-        fx = v['fx']
-        fy = v['fy']
-        tx = v['tx']
-        ty = v['ty']
-        canvas_obj = canvas.create_line(fy, fx, ty, tx, fill="blue", width=3, dash=(5, 5))
-        canvas_objs[k] = canvas_obj
+        self.window.update()
 
-    window.mainloop()
+        self.window_width = self.window.winfo_width()
+        self.window_height = self.window.winfo_height()
+
+        self.canvas = Canvas(
+            self.window,
+            width=self.window_width,
+            height=self.window_height,
+            bg="#021738"
+        )
+
+        self.canvas.pack()
+
+        self.icon = PhotoImage(file="drone.png")
+        self.window.iconphoto(True, self.icon)
+
+        self.data = data
+
+    def run(self):
+        hubs, connections, nb_drones, neighbours = self.data
+
+        hub_coordinates = {}
+        x_coordinates = []
+        y_coordinates = []
+
+        for hub in hubs.values():
+            hub_coordinates[hub["name"]] = {
+                "x": hub["x"],
+                "y": hub["y"]
+            }
+
+            x_coordinates.append(hub["x"])
+            y_coordinates.append(hub["y"])
+
+        x_range = abs(max(x_coordinates) - min(x_coordinates)) + 1
+        y_range = abs(max(y_coordinates) - min(y_coordinates)) + 1
+
+        x_coordinates.sort()
+        y_coordinates.sort()
+
+        x_unit = int(self.window_width / x_range)
+        y_unit = int(self.window_height / y_range)
+
+        zone_size = min(x_unit, y_unit) / 2
+
+        x_canvas_coordinates = {}
+        position = 0
+
+        for coordinate in range(
+            min(x_coordinates),
+            max(x_coordinates) + 1
+        ):
+            if coordinate in x_coordinates:
+                x_canvas_coordinates[coordinate] = position * x_unit
+
+            position += 1
+
+        y_canvas_coordinates = {}
+        position = 0
+
+        for coordinate in range(
+            min(y_coordinates),
+            max(y_coordinates) + 1
+        ):
+            if coordinate in y_coordinates:
+                y_canvas_coordinates[coordinate] = position * y_unit
+
+            position += 1
+
+        canvas_objects = {}
+
+        for hub_name, coordinates in hub_coordinates.items():
+
+            x_position = x_canvas_coordinates[coordinates["x"]]
+            y_position = y_canvas_coordinates[coordinates["y"]]
+
+            canvas_object = self.canvas.create_oval(
+                x_position,
+                y_position,
+                x_position + zone_size,
+                y_position + zone_size,
+                fill="red"
+            )
+
+            canvas_objects[hub_name] = canvas_object
+
+        connection_coordinates = {}
+
+        for connection_name, connection in connections.items():
+
+            from_hub_coords = self.canvas.coords(
+                canvas_objects[connection["from_hub"]]
+            )
+
+            from_x = from_hub_coords[0] + (
+                from_hub_coords[2] - from_hub_coords[0]
+            ) / 2
+
+            from_y = from_hub_coords[1] + (
+                from_hub_coords[3] - from_hub_coords[1]
+            ) / 2
+
+            to_hub_coords = self.canvas.coords(
+                canvas_objects[connection["to_hub"]]
+            )
+
+            to_x = to_hub_coords[0] + (
+                to_hub_coords[2] - to_hub_coords[0]
+            ) / 2
+
+            to_y = to_hub_coords[1] + (
+                to_hub_coords[3] - to_hub_coords[1]
+            ) / 2
+
+            connection_coordinates[connection_name] = {
+                "from_x": from_x,
+                "from_y": from_y,
+                "to_x": to_x,
+                "to_y": to_y
+            }
+
+        for connection_name, coordinates in connection_coordinates.items():
+
+            canvas_object = self.canvas.create_line(
+                coordinates["from_x"],
+                coordinates["from_y"],
+                coordinates["to_x"],
+                coordinates["to_y"],
+                fill="blue",
+                width=3,
+                dash=(5, 5)
+            )
+
+            canvas_objects[connection_name] = canvas_object
+
+        self.window.mainloop()

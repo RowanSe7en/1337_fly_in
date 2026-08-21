@@ -3,7 +3,7 @@ from pathlib import Path
 from parsing import Parser
 from algo_start import Algo
 from drones import Drone, drone_creator
-
+from display import mainloop
 
 def main():
 
@@ -38,7 +38,7 @@ def main():
 
     drone_creator(algo.nb_drones)
     algo.ecah_drone_path_assigner()
-
+    mainloop(data)
 
 
     # try:

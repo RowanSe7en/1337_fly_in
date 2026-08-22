@@ -114,7 +114,52 @@ class Algo:
 
         return None
 
-    def _process_zone(self, drone, zone, turn, turnes):
+    def _normalize_zone_turns(self, zones_at_turnes):
+        """Return snapshots numbered consecutively starting at turn 0."""
+        if not zones_at_turnes:
+            return []
+
+        normalized = []
+        previous = None
+
+        for _old_turn, zones in zones_at_turnes:
+            snapshot = {
+                zone: list(drone_ids)
+                for zone, drone_ids in zones.items()
+            }
+            normalized.append(snapshot)
+
+        # The list position is the source of truth.  This prevents labels such
+        # as 0, 2, 3... from skipping turn 1 when a branch creates a snapshot
+        # with an incorrect turn number.
+        return [
+            (index, zones)
+            for index, zones in enumerate(normalized)
+        ]
+
+    def _ensure_zone_turn(self, zones_at_turnes, turn):
+        """Ensure a zone-state snapshot exists for a turn."""
+        while len(zones_at_turnes) <= turn:
+            previous = zones_at_turnes[-1][1]
+            next_turn = len(zones_at_turnes)
+            zones_at_turnes.append((
+                next_turn,
+                {zone: list(drone_ids) for zone, drone_ids in previous.items()}
+            ))
+
+    def _move_drone(self, drone, zone, turn, zones_at_turnes):
+        """Record the drone's position for the given turn."""
+        self._ensure_zone_turn(zones_at_turnes, turn)
+        zones = zones_at_turnes[turn][1]
+
+        for drone_ids in zones.values():
+            if drone.id in drone_ids:
+                drone_ids.remove(drone.id)
+
+        if drone.id not in zones[zone]:
+            zones[zone].append(drone.id)
+
+    def _process_zone(self, drone, zone, turn, turnes, zones_at_turnes):
         if zone in turnes[turn - 1][1]:
             drone.start_turn = turn
 
@@ -137,8 +182,11 @@ class Algo:
                             if n['name'] not in [self.start_hub]
                         ]
                     ))
+                    self._ensure_zone_turn(zones_at_turnes, turn)
+                self._ensure_zone_turn(zones_at_turnes, turn)
 
                 turnes[turn - 1][1].remove(zone)
+                self._move_drone(drone, zone, turn, zones_at_turnes)
 
             return turn, False
 
@@ -220,6 +268,7 @@ class Algo:
                                             ))
 
                                     turnes[turn - 1][1].remove(zone)
+                                    self._move_drone(drone, zone, turn, zones_at_turnes)
 
                         turn += 1
 
@@ -261,15 +310,20 @@ class Algo:
                                 if n['name'] not in [self.start_hub]
                             ]
                         ))
+                    self._ensure_zone_turn(zones_at_turnes, turn)
 
                     if path in turnes[turn - 1][1]:
                         turnes[turn - 1][1].remove(path)
+                        self._move_drone(drone, path, turn, zones_at_turnes)
 
                     else:
                         while True:
                             i = drone.path.index(path)
                             drone.path.insert(i, drone.path[i - 1])
                             turnes[turn - 1][1].remove(drone.path[i - 1])
+                            self._move_drone(
+                                drone, drone.path[i - 1], turn, zones_at_turnes
+                            )
                             turn += 1
                             added_turns += 1
 
@@ -290,6 +344,21 @@ class Algo:
     def ecah_drone_path_assigner(self):
 
         turnes = [(1, [n['name'] for n in self.hubs.values() if n['name'] not in [self.start_hub]])]
+        zones_at_turnes = [
+            (
+                0,
+                {
+                    hub_data["name"]: (
+                        [drone.id for drone in drones_list]
+                        if hub_data["name"] == self.start_hub
+                        else []
+                    )
+                    for hub_data in self.hubs.values()
+                }
+            )
+        ]
+        zones_at_turnes[:] = self._normalize_zone_turns(zones_at_turnes)
+        print("zones_at_turnes", zones_at_turnes)
 
         for drone in drones_list:
             print("drone.id", drone.id)
@@ -303,7 +372,8 @@ class Algo:
                         drone,
                         zone,
                         turn,
-                        turnes
+                        turnes,
+                        zones_at_turnes
                     )
 
                     if should_break:
@@ -317,12 +387,14 @@ class Algo:
                             if n['name'] not in [self.start_hub]
                         ]
                     ))
+                    self._ensure_zone_turn(zones_at_turnes, turn)
 
                     turn, should_break = self._process_zone(
                         drone,
                         zone,
                         turn,
-                        turnes
+                        turnes,
+                        zones_at_turnes
                     )
 
                     if should_break:
@@ -336,7 +408,10 @@ class Algo:
             if can_i_add:
                 self.all_paths.append([len(drone.path) + 1, drone.path])
             print("turnes:", turnes)
+            zones_at_turnes[:] = self._normalize_zone_turns(zones_at_turnes)
+            print("zones_at_turnes:", zones_at_turnes)
             print("drone.path:", drone.path)
             print("self.all_paths:", self.all_paths)
             print("-------------------------------------")
             print(turnes[-1][0] + 1)
+        return zones_at_turnes

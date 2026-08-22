@@ -3,7 +3,11 @@ from tkinter import Tk, Canvas, PhotoImage
 
 class Display:
 
-    def __init__(self, data):
+    def __init__(self, data, zones_at_turnes):
+
+        self.data = data
+        self.zones_at_turnes = zones_at_turnes
+
         self.window = Tk()
 
         self.window.title("Fly-in")
@@ -26,8 +30,6 @@ class Display:
 
         self.icon = PhotoImage(file="drone.png")
         self.window.iconphoto(True, self.icon)
-
-        self.data = data
 
     def run(self):
         hubs, connections, nb_drones, neighbours = self.data
@@ -54,7 +56,8 @@ class Display:
         x_unit = int(self.window_width / x_range)
         y_unit = int(self.window_height / y_range)
 
-        zone_size = min(x_unit, y_unit) / 2
+        # zone_size = min(x_unit, y_unit) / 2
+        zone_size = 100
 
         x_canvas_coordinates = {}
         position = 0
@@ -64,7 +67,7 @@ class Display:
             max(x_coordinates) + 1
         ):
             if coordinate in x_coordinates:
-                x_canvas_coordinates[coordinate] = position * x_unit
+                x_canvas_coordinates[coordinate] = position * x_unit + 20
 
             position += 1
 
@@ -76,23 +79,42 @@ class Display:
             max(y_coordinates) + 1
         ):
             if coordinate in y_coordinates:
-                y_canvas_coordinates[coordinate] = position * y_unit
+                y_canvas_coordinates[coordinate] = position * y_unit + 20
 
             position += 1
 
         canvas_objects = {}
-
+        print("hub_coordinates", hub_coordinates)
         for hub_name, coordinates in hub_coordinates.items():
 
             x_position = x_canvas_coordinates[coordinates["x"]]
             y_position = y_canvas_coordinates[coordinates["y"]]
 
+            nx_position = x_position + zone_size
+            ny_position = y_position + zone_size
+
             canvas_object = self.canvas.create_oval(
                 x_position,
                 y_position,
-                x_position + zone_size,
-                y_position + zone_size,
+                nx_position,
+                ny_position,
                 fill="red"
+            )
+
+            text_content = str(self.zones_at_turnes[0][1][hub_name])
+
+            formatted_text = "\n".join(
+                text_content[i:i + 10]
+                for i in range(0, len(text_content), 10)
+            )
+
+            self.canvas.create_text(
+                nx_position - ((nx_position - x_position) / 2),
+                ny_position + 20,
+                text=f"{formatted_text}",
+                font=("courier", 16, "bold"),
+                fill="white", 
+                anchor="n"
             )
 
             canvas_objects[hub_name] = canvas_object
@@ -141,9 +163,12 @@ class Display:
                 coordinates["to_y"],
                 fill="blue",
                 width=3,
-                dash=(5, 5)
+                dash=(5, 5),
+                tags="connection"
             )
 
             canvas_objects[connection_name] = canvas_object
+
+            self.canvas.tag_lower("connection")
 
         self.window.mainloop()

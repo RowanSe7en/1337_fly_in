@@ -37,9 +37,9 @@ def main():
     algo.find_the_shortest_path()
 
     drone_creator(algo.nb_drones)
-    algo.ecah_drone_path_assigner()
+    zones_at_turnes = algo.ecah_drone_path_assigner()
 
-    display = Display(data)
+    display = Display(data, zones_at_turnes)
     display.run()
 
 

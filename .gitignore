@@ -2,3 +2,4 @@ __pycache__/
 t*
 test.py
 algo_start_*
+.venv

@@ -1,18 +1,34 @@
-import sys
+import argparse
 from pathlib import Path
+
 from parsing import Parser
 from algo_start import Algo
-from drones import Drone, drone_creator
+from drones import drone_creator
 from display import Display
 
-def main():
 
-    path = Path(sys.argv[1])
+def main():
+    """Run the Fly-in simulation."""
+
+    arg_parser = argparse.ArgumentParser(
+        description="Run the Fly-in drone simulation."
+    )
+
+    arg_parser.add_argument(
+        "-m",
+        "--map",
+        type=Path,
+        default=Path("maps/easy/mine.txt"),
+        help="Path to the map file.",
+    )
+
+    args = arg_parser.parse_args()
+
+    path = args.map
 
     try:
         parser = Parser(path)
         data = parser.parse()
-        # parser.print_data()
 
     except ValueError:
         print(

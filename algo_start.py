@@ -94,7 +94,6 @@ class Algo:
             a = path_dict[a][1]
         path.reverse()
         path.remove(start_hub)
-        path.remove(end_hub)
 
         return path, path_dict[end_hub][0], path_dict, unvisited_list
 
@@ -129,9 +128,6 @@ class Algo:
             }
             normalized.append(snapshot)
 
-        # The list position is the source of truth.  This prevents labels such
-        # as 0, 2, 3... from skipping turn 1 when a branch creates a snapshot
-        # with an incorrect turn number.
         return [
             (index, zones)
             for index, zones in enumerate(normalized)
@@ -159,8 +155,28 @@ class Algo:
         if drone.id not in zones[zone]:
             zones[zone].append(drone.id)
 
+    def _zone_has_capacity(self, zone, turn, zones_at_turnes):
+        """Return True if the zone can accept another drone."""
+
+        if zone == self.end_hub:
+            return True
+
+        current_drones = len(
+            zones_at_turnes[turn][1][zone]
+        )
+
+        for hub in self.hubs.values():
+            if hub["name"] == zone:
+                max_drones = hub["metadata"]["max_drones"]
+
+                return current_drones + 1 < max_drones
+
+        return False
+
     def _process_zone(self, drone, zone, turn, turnes, zones_at_turnes):
+
         if zone in turnes[turn - 1][1]:
+
             drone.start_turn = turn
 
             zone_name = self._get_zone_name(zone)
@@ -185,7 +201,8 @@ class Algo:
                     self._ensure_zone_turn(zones_at_turnes, turn)
                 self._ensure_zone_turn(zones_at_turnes, turn)
 
-                turnes[turn - 1][1].remove(zone)
+                if zone != self.end_hub and not self._zone_has_capacity(zone, turn, zones_at_turnes):
+                    turnes[turn - 1][1].remove(zone)
                 self._move_drone(drone, zone, turn, zones_at_turnes)
 
             return turn, False
@@ -201,6 +218,7 @@ class Algo:
                     break
 
             if is_found:
+
                 added_cost = 0
 
                 for t in turnes:
@@ -267,7 +285,8 @@ class Algo:
                                                 ]
                                             ))
 
-                                    turnes[turn - 1][1].remove(zone)
+                                    if zone != self.end_hub and not self._zone_has_capacity(zone, turn, zones_at_turnes):
+                                        turnes[turn - 1][1].remove(zone)
                                     self._move_drone(drone, zone, turn, zones_at_turnes)
 
                         turn += 1
@@ -313,14 +332,18 @@ class Algo:
                     self._ensure_zone_turn(zones_at_turnes, turn)
 
                     if path in turnes[turn - 1][1]:
-                        turnes[turn - 1][1].remove(path)
+
+                        if path != self.end_hub and not self._zone_has_capacity(zone, turn, zones_at_turnes):
+                            turnes[turn - 1][1].remove(path)
                         self._move_drone(drone, path, turn, zones_at_turnes)
 
                     else:
                         while True:
                             i = drone.path.index(path)
                             drone.path.insert(i, drone.path[i - 1])
-                            turnes[turn - 1][1].remove(drone.path[i - 1])
+
+                            if drone.path[i - 1] != self.end_hub and not self._zone_has_capacity(zone, turn, zones_at_turnes):
+                                turnes[turn - 1][1].remove(drone.path[i - 1])
                             self._move_drone(
                                 drone, drone.path[i - 1], turn, zones_at_turnes
                             )
@@ -358,9 +381,16 @@ class Algo:
             )
         ]
         zones_at_turnes[:] = self._normalize_zone_turns(zones_at_turnes)
-        print("zones_at_turnes", zones_at_turnes)
+
+        original_short_path = list(self.short_path)
+        original_short_path_dict = dict(self.short_path_dict)
+        original_unvisited = list(self.unvisited)
 
         for drone in drones_list:
+            self.short_path = list(original_short_path)
+            self.short_path_dict = dict(original_short_path_dict)
+            self.unvisited = list(original_unvisited)
+
             print("drone.id", drone.id)
             turn = 0
             cost = 0

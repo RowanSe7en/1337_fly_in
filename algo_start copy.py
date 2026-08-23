@@ -146,10 +146,57 @@ class Algo:
                 {zone: list(drone_ids) for zone, drone_ids in previous.items()}
             ))
 
+    def drone_at_which_zone(self, drone, snapshot):
+        """Return the zone name `drone` currently sits in within `snapshot`
+        (a single {zone: [drone_ids]} dict), or None if it isn't placed
+        anywhere in it yet."""
+        for zone_name, drone_ids in snapshot.items():
+            if drone.id in drone_ids:
+                return zone_name
+        return None
+
+    def _update_future_zone_turns(self, drone, changed_turn, old_zone, new_zone, zones_at_turnes):
+        """
+        `_move_drone` just corrected `drone`'s position at `changed_turn`
+        from `old_zone` to `new_zone`. Any already-created snapshot after
+        `changed_turn` was built by `_ensure_zone_turn` copying the
+        previous snapshot forward -- so as long as nothing has explicitly
+        moved this drone since, every one of those later snapshots is
+        still just a stale copy showing the drone at `old_zone`, and needs
+        the same correction.
+
+        Walk forward turn by turn and, for each one, only fix it if this
+        drone's recorded zone there still equals `old_zone` (i.e. it's an
+        untouched copy, not a genuine later placement). Stop at the first
+        turn where that's no longer true -- that turn holds a real,
+        intentional move for this drone and must be left alone. Only this
+        drone's own entry is ever touched in any snapshot, so other
+        drones' recorded movements are never affected.
+        """
+        if old_zone == new_zone or old_zone is None:
+            return
+
+        for t in range(changed_turn + 1, len(zones_at_turnes)):
+            snapshot = zones_at_turnes[t][1]
+
+            if self.drone_at_which_zone(drone, snapshot) != old_zone:
+                break
+
+            for drone_ids in snapshot.values():
+                if drone.id in drone_ids:
+                    drone_ids.remove(drone.id)
+            if drone.id not in snapshot[new_zone]:
+                snapshot[new_zone].append(drone.id)
+
     def _move_drone(self, drone, zone, turn, zones_at_turnes):
-        """Record the drone's position for the given turn."""
+        """Record the drone's position for the given turn, and propagate
+        the change into any already-created future snapshot that was only
+        a stale copy of the old position."""
         self._ensure_zone_turn(zones_at_turnes, turn)
         zones = zones_at_turnes[turn][1]
+        # print("zones",turn, drone.id, zone, zones)
+
+        old_zone = self.drone_at_which_zone(drone, zones)
 
         for drone_ids in zones.values():
             if drone.id in drone_ids:
@@ -157,6 +204,10 @@ class Algo:
 
         if drone.id not in zones[zone]:
             zones[zone].append(drone.id)
+
+        self._update_future_zone_turns(drone, turn, old_zone, zone, zones_at_turnes)
+
+        print("after _move_drone", zones_at_turnes)
 
     def _zone_has_capacity(self, zone, turn, zones_at_turnes):
         """Return True if the zone can accept another drone."""
@@ -179,6 +230,8 @@ class Algo:
     def _process_zone(self, drone, zone, turn, turnes, zones_at_turnes):
 
         if zone in turnes[turn - 1][1]:
+            print("if")
+            print("yyyyyyyyyyyyy", turn,zone, drone.path, zones_at_turnes)
             drone.start_turn = turn
 
             zone_name = self._get_zone_name(zone)
@@ -205,10 +258,17 @@ class Algo:
 
                 if zone != self.end_hub and not self._zone_has_capacity(zone, turn, zones_at_turnes):
                     turnes[turn - 1][1].remove(zone)
+                print("before _move_drone")
+                print("yyyyyyyyyyyyy", turn,zone, drone.path, zones_at_turnes)
                 self._move_drone(drone, zone, turn, zones_at_turnes)
+            print("********************************************************************************************************* ")
+            print("return0")
+            print("yyyyyyyyyyyyy", turn,zone, drone.path, zones_at_turnes)
             return turn, False
 
         else:
+            print("else")
+            print("yyyyyyyyyyyyy", turn,zone, drone.path, zones_at_turnes)
 
             is_found = 0
 
@@ -216,10 +276,14 @@ class Algo:
                 zone_name = self._get_zone_name(zone)
 
                 if e in turnes[turn - 1][1] and zone_name != "blocked":
+                    print("is_found", e)
                     is_found = 1
                     break
+            print("yyyyyyyyyyyyy", turn,zone, drone.path, zones_at_turnes)
 
             if is_found:
+                print("is_found")
+                print("yyyyyyyyyyyyy", turn,zone, drone.path, zones_at_turnes)
 
                 added_cost = 0
 
@@ -235,6 +299,9 @@ class Algo:
                 saved_short_path = list(self.short_path)
                 saved_short_path_dict = dict(self.short_path_dict)
                 saved_unvisited = list(self.unvisited)
+                # saved_turnes = list(turnes)
+                # saved_zones_at_turnes = list(zones_at_turnes)
+                
 
                 self.short_path, new_cost, self.short_path_dict, self.unvisited = (
                     self._shortest_path_search(
@@ -253,6 +320,9 @@ class Algo:
                 drone.start_turn = turn + added_cost
 
                 if math.isfinite(new_cost) and new_cost <= self.cost + added_cost:
+
+                    print("isfinite")
+                    print("yyyyyyyyyyyyy", turn,zone, drone.path, zones_at_turnes)
 
                     drone.start_turn = turn
 
@@ -297,15 +367,28 @@ class Algo:
                                     self._move_drone(drone, zone, turn, zones_at_turnes)
 
                         turn += 1
-
+                    print("return1")
+                    print("yyyyyyyyyyyyy", turn,zone, drone.path, zones_at_turnes)
                     return turn, True
-
+                # print("yyyyyyyyyyyyy", drone.path, zones_at_turnes)
+                # The only neighbour(s) currently free (per turnes) do not
+                # actually lead to end_hub within budget -- e.g. `dead_end`
+                # in the trap map, which has no onward connection to goal.
+                # That is a genuine dead end, not a temporarily-occupied
+                # route, so don't commit to it: restore the pre-reroute
+                # state and fall through to the existing wait/backtrack
+                # logic below instead, exactly as if no alternative
+                # neighbour had been found at all.
                 self.short_path = saved_short_path
                 self.short_path_dict = saved_short_path_dict
                 self.unvisited = saved_unvisited
+                # turnes = saved_turnes
+                # zones_at_turnes = saved_zones_at_turnes
                 is_found = 0
 
             if not is_found:
+                print("not is_found")
+                print("yyyyyyyyyyyyy", turn,zone, drone.path, zones_at_turnes)
                 looking_for_cost = math.inf
                 looking_for_path = []
 
@@ -381,7 +464,11 @@ class Algo:
                     added_new_cost + len(drone.path) + 1
                 )
 
+                print("return2")
+                print("yyyyyyyyyyyyy", turn,zone, drone.path, zones_at_turnes)
                 return turn, True
+        print("return3")
+        print("yyyyyyyyyyyyy", turn,zone, drone.path, zones_at_turnes)
         return turn, False
 
     def ecah_drone_path_assigner(self):
@@ -418,6 +505,7 @@ class Algo:
                 turn += 1
 
                 if len(turnes) >= turn:
+                    print("111111111111111111111111111111111")
                     turn, should_break = self._process_zone(
                         drone,
                         zone,
@@ -430,6 +518,7 @@ class Algo:
                         break
 
                 else:
+                    print("2222222222222222222222222222222")
                     turnes.append((
                         turn,
                         [

@@ -86,9 +86,6 @@ class Algo:
             else:
                 initiate_neighbours = list(self.neighbours[lower_cost_zone_name])
 
-        if not math.isfinite(path_dict[end_hub][0]):
-            return [], path_dict[end_hub][0], path_dict, unvisited_list
-
         path = []
         a = end_hub
         path.append(a)
@@ -179,6 +176,7 @@ class Algo:
     def _process_zone(self, drone, zone, turn, turnes, zones_at_turnes):
 
         if zone in turnes[turn - 1][1]:
+
             drone.start_turn = turn
 
             zone_name = self._get_zone_name(zone)
@@ -206,10 +204,10 @@ class Algo:
                 if zone != self.end_hub and not self._zone_has_capacity(zone, turn, zones_at_turnes):
                     turnes[turn - 1][1].remove(zone)
                 self._move_drone(drone, zone, turn, zones_at_turnes)
+
             return turn, False
 
         else:
-
             is_found = 0
 
             for e in self.neighbours[self.short_path_dict[zone][1]]:
@@ -232,10 +230,6 @@ class Algo:
                 from_hub = self.short_path_dict[zone][1]
                 start_hub = from_hub
 
-                saved_short_path = list(self.short_path)
-                saved_short_path_dict = dict(self.short_path_dict)
-                saved_unvisited = list(self.unvisited)
-
                 self.short_path, new_cost, self.short_path_dict, self.unvisited = (
                     self._shortest_path_search(
                         start_hub=from_hub,
@@ -252,8 +246,7 @@ class Algo:
 
                 drone.start_turn = turn + added_cost
 
-                if math.isfinite(new_cost) and new_cost <= self.cost + added_cost:
-
+                if new_cost <= self.cost + added_cost:
                     drone.start_turn = turn
 
                     for zone in self.short_path:
@@ -300,12 +293,7 @@ class Algo:
 
                     return turn, True
 
-                self.short_path = saved_short_path
-                self.short_path_dict = saved_short_path_dict
-                self.unvisited = saved_unvisited
-                is_found = 0
-
-            if not is_found:
+            else:
                 looking_for_cost = math.inf
                 looking_for_path = []
 
@@ -345,7 +333,7 @@ class Algo:
 
                     if path in turnes[turn - 1][1]:
 
-                        if path != self.end_hub and not self._zone_has_capacity(path, turn, zones_at_turnes):
+                        if path != self.end_hub and not self._zone_has_capacity(zone, turn, zones_at_turnes):
                             turnes[turn - 1][1].remove(path)
                         self._move_drone(drone, path, turn, zones_at_turnes)
 
@@ -354,22 +342,13 @@ class Algo:
                             i = drone.path.index(path)
                             drone.path.insert(i, drone.path[i - 1])
 
-                            if drone.path[i - 1] != self.end_hub and not self._zone_has_capacity(drone.path[i - 1], turn, zones_at_turnes):
+                            if drone.path[i - 1] != self.end_hub and not self._zone_has_capacity(zone, turn, zones_at_turnes):
                                 turnes[turn - 1][1].remove(drone.path[i - 1])
                             self._move_drone(
                                 drone, drone.path[i - 1], turn, zones_at_turnes
                             )
                             turn += 1
                             added_turns += 1
-
-                            if len(turnes) < turn:
-                                turnes.append((
-                                    turn,
-                                    [
-                                        n['name'] for n in self.hubs.values()
-                                        if n['name'] not in [self.start_hub]
-                                    ]
-                                ))
 
                             if path in turnes[turn - 1][1]:
                                 break
@@ -382,6 +361,7 @@ class Algo:
                 )
 
                 return turn, True
+
         return turn, False
 
     def ecah_drone_path_assigner(self):

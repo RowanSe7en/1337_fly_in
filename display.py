@@ -189,7 +189,7 @@ class Display:
             position += 1
         canvas_objects = {}
 
-        print("hub_coordinates", hub_coordinates)
+        # print("hub_coordinates", hub_coordinates)
 
         for hub_name, coordinates in hub_coordinates.items():
 

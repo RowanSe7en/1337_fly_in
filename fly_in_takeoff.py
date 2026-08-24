@@ -54,6 +54,7 @@ def main():
 
     drone_creator(algo.nb_drones)
     zones_at_turnes = algo.ecah_drone_path_assigner()
+    algo.print_simulation()
 
     display = Display(data, zones_at_turnes)
     display.run()

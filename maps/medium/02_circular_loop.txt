@@ -1,5 +1,5 @@
 # Medium Level 2: Circular loop with restricted zones
-nb_drones: 6
+nb_drones: 25
 
 start_hub: start 0 0 [color=green]
 hub: loop_a 1 0 [color=orange max_drones=2]

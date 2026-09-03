@@ -1,13 +1,17 @@
+from typing import Callable, Dict, List, Optional, Set, Tuple
+from drones import Drone
+
+
 class SimulationPrinter:
     """Format and print movements represented by simulation snapshots."""
 
     def __init__(
         self,
-        zones_at_turnes,
-        drones_list,
-        end_hub,
-        get_zone_type,
-    ):
+        zones_at_turnes: List[Tuple[int, Dict[str, List[int]]]],
+        drones_list: List[Drone],
+        end_hub: str,
+        get_zone_type: Callable[[str], Optional[str]],
+    ) -> None:
         """Initialize the simulation printer.
 
         Args:
@@ -22,7 +26,11 @@ class SimulationPrinter:
         self.end_hub = end_hub
         self.get_zone_type = get_zone_type
 
-    def _drone_at_which_zone(self, drone, snapshot):
+    def _drone_at_which_zone(
+        self,
+        drone: Drone,
+        snapshot: Dict[str, List[int]],
+    ) -> Optional[str]:
         """Return the zone containing a specific drone.
 
         Args:
@@ -40,7 +48,7 @@ class SimulationPrinter:
 
         return None
 
-    def print_simulation(self):
+    def print_simulation(self) -> int:
         """Print the drone movements for every simulation turn.
 
         Tracks each drone between consecutive simulation snapshots and
@@ -56,9 +64,9 @@ class SimulationPrinter:
         if not self.zones_at_turnes:
             return 0
 
-        delivered = set()
-        pending_restricted_turn = {}
-        turns = 0
+        delivered: Set[int] = set()
+        pending_restricted_turn: Dict[int, str] = {}
+        turns: int = 0
 
         for turn in range(1, len(self.zones_at_turnes)):
             if len(delivered) >= len(self.drones_list):
@@ -66,7 +74,7 @@ class SimulationPrinter:
 
             prev_snapshot = self.zones_at_turnes[turn - 1][1]
             curr_snapshot = self.zones_at_turnes[turn][1]
-            moves = []
+            moves: List[Tuple[int, str]] = []
 
             for drone in self.drones_list:
 

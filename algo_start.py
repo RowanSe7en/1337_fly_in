@@ -1,12 +1,14 @@
 import math
 import heapq
-from drones import drones_list
+from typing import Any, Dict, List, Optional, Set, Tuple, cast
+from custom_types import ParsedData
+from drones import Drone, drones_list
 
 
 class Algo:
     """Calculate and assign paths for drones in the Fly-in simulation."""
 
-    def __init__(self, data):
+    def __init__(self, data: ParsedData) -> None:
         """Initialize the path-finding algorithm.
 
         Args:
@@ -21,24 +23,26 @@ class Algo:
             self.neighbours,
         ) = self.data
 
-        self.start_hub = self.hubs['start_hub']['name']
-        self.end_hub = self.hubs['end_hub']['name']
-        self.unvisited = [v['name'] for v in self.hubs.values()]
-        self.cost = 0
-        self.all_paths = []
-        self.turnes = []
-        self.zones_at_turnes = []
+        self.start_hub: str = self.hubs['start_hub']['name']
+        self.end_hub: str = self.hubs['end_hub']['name']
+        self.unvisited: List[str] = [
+            v['name'] for v in self.hubs.values()
+        ]
+        self.cost: float = 0
+        self.all_paths: List[List[Any]] = []
+        self.turnes: List[Tuple[int, List[str]]] = []
+        self.zones_at_turnes: List[Tuple[int, Dict[str, List[int]]]] = []
 
     def shortest_path_search(
         self,
-        start_hub,
-        end_hub,
-        unvisited_list=None,
-        exclude_zones=None,
-        allowed_zones=None,
-        skip_blocked=True,
-        from_placeholder="none",
-    ):
+        start_hub: str,
+        end_hub: str,
+        unvisited_list: Optional[List[str]] = None,
+        exclude_zones: Optional[List[str]] = None,
+        allowed_zones: Optional[List[str]] = None,
+        skip_blocked: bool = True,
+        from_placeholder: str = "none",
+    ) -> Tuple[List[str], float, Dict[str, Tuple[float, str]], List[str]]:
         """Find the shortest path between two hubs.
 
         Uses a weighted graph traversal where normal and priority zones
@@ -63,7 +67,7 @@ class Algo:
         if unvisited_list is None:
             unvisited_list = [v['name'] for v in self.hubs.values()]
 
-        path_dict = {}
+        path_dict: Dict[str, Tuple[float, str]] = {}
 
         for e in unvisited_list:
             path_dict[e] = (math.inf, "none")
@@ -71,7 +75,7 @@ class Algo:
         from_hub = start_hub
         path_dict[from_hub] = (0, from_placeholder)
         initiate_neighbours = list(self.neighbours[from_hub])
-        cost = 0
+        cost: float = 0
         unvisited_list.remove(from_hub)
 
         while initiate_neighbours:
@@ -138,7 +142,7 @@ class Algo:
                                     from_hub,
                                 )
 
-            heap = []
+            heap: List[Tuple[float, str, str]] = []
 
             for zone, (zone_cost, zone_from_hub) in path_dict.items():
                 if zone in unvisited_list:
@@ -161,7 +165,7 @@ class Algo:
         if not math.isfinite(path_dict[end_hub][0]):
             return [], path_dict[end_hub][0], path_dict, unvisited_list
 
-        path = []
+        path: List[str] = []
         a = end_hub
         path.append(a)
 
@@ -174,7 +178,7 @@ class Algo:
 
         return path, path_dict[end_hub][0], path_dict, unvisited_list
 
-    def find_the_shortest_path(self):
+    def find_the_shortest_path(self) -> None:
         """Find and store the shortest path from start to end hub.
 
         Updates the algorithm's shortest path, path cost, path dictionary,
@@ -202,7 +206,7 @@ class Algo:
         if not math.isfinite(self.short_path_dict[self.end_hub][0]):
             raise ValueError("No solution to the map")
 
-    def get_zone_type(self, zone):
+    def get_zone_type(self, zone: str) -> Optional[str]:
         """Return the type of a specified zone.
 
         Args:
@@ -213,11 +217,11 @@ class Algo:
         """
         for v in self.hubs.values():
             if v['name'] == zone:
-                return v['metadata']['zone']
+                return cast(str, v['metadata']['zone'])
 
         return None
 
-    def ensure_zone_turn(self, turn):
+    def ensure_zone_turn(self, turn: int) -> None:
         """Ensure that a simulation snapshot exists for a given turn.
 
         Missing snapshots are created by copying the previous turn's
@@ -241,7 +245,11 @@ class Algo:
                 }
             ))
 
-    def drone_at_which_zone(self, drone, snapshot):
+    def drone_at_which_zone(
+        self,
+        drone: Drone,
+        snapshot: Dict[str, List[int]],
+    ) -> Optional[str]:
         """Return the zone containing a specified drone.
 
         Args:
@@ -260,11 +268,11 @@ class Algo:
 
     def update_future_zone_turns(
         self,
-        drone,
-        changed_turn,
-        old_zone,
-        new_zone,
-    ):
+        drone: Drone,
+        changed_turn: int,
+        old_zone: Optional[str],
+        new_zone: str,
+    ) -> None:
         """Update future snapshots after moving a drone.
 
         Removes the drone from its old zone and places it in the new zone
@@ -298,7 +306,13 @@ class Algo:
             if drone.id not in snapshot[new_zone]:
                 snapshot[new_zone].append(drone.id)
 
-    def move_drone(self, drone, zone, turn, ff):
+    def move_drone(
+        self,
+        drone: Drone,
+        zone: str,
+        turn: int,
+        ff: str,
+    ) -> None:
         """Move a drone to a specified zone at a simulation turn.
 
         Updates the current snapshot, handles zone capacity tracking,
@@ -320,7 +334,7 @@ class Algo:
         old_zone = self.drone_at_which_zone(drone, zones)
 
         for v in self.hubs.values():
-            if v["name"] == old_zone:
+            if old_zone is not None and v["name"] == old_zone:
                 max_drones = v["metadata"]["max_drones"]
 
                 if (
@@ -345,7 +359,7 @@ class Algo:
             zone
         )
 
-    def zone_has_capacity(self, zone, turn):
+    def zone_has_capacity(self, zone: str, turn: int) -> bool:
         """Check whether a zone can accept another drone.
 
         The end hub always has capacity. Other zones are checked against
@@ -371,11 +385,11 @@ class Algo:
         for hub in self.hubs.values():
             if hub["name"] == zone:
                 max_drones = hub["metadata"]["max_drones"]
-                return current_drones + 1 < max_drones
+                return bool(current_drones + 1 < max_drones)
 
         return False
 
-    def _has_capacity_for_search(self, zone, turn):
+    def _has_capacity_for_search(self, zone: str, turn: int) -> bool:
         """Check zone capacity while searching for a path.
 
         Start and end hubs are treated as having unlimited capacity.
@@ -400,11 +414,11 @@ class Algo:
 
         for hub in self.hubs.values():
             if hub["name"] == zone:
-                return current_drones < hub["metadata"]["max_drones"]
+                return bool(current_drones < hub["metadata"]["max_drones"])
 
         return False
 
-    def find_drone_path(self, start_turn):
+    def find_drone_path(self, start_turn: int) -> List[str]:
         """Find a valid time-aware path for a drone.
 
         Searches through zone and turn states while accounting for zone
@@ -423,8 +437,8 @@ class Algo:
         """
         start = self.start_hub
         end = self.end_hub
-        pq = [(start_turn, start, [])]
-        visited = set()
+        pq: List[Tuple[int, str, List[str]]] = [(start_turn, start, [])]
+        visited: Set[Tuple[str, int]] = set()
 
         while pq:
             turn, zone, path = heapq.heappop(pq)
@@ -486,7 +500,12 @@ class Algo:
             "No valid path exists between start and end zones"
         )
 
-    def commit_path(self, drone, path, start_turn):
+    def commit_path(
+        self,
+        drone: Drone,
+        path: List[str],
+        start_turn: int,
+    ) -> None:
         """Commit a calculated path to the simulation.
 
         Adds the drone's movements to the appropriate simulation turns,
@@ -534,7 +553,9 @@ class Algo:
 
         drone.start_turn = start_turn + 1
 
-    def ecah_drone_path_assigner(self):
+    def ecah_drone_path_assigner(
+        self,
+    ) -> List[Tuple[int, Dict[str, List[int]]]]:
         """Assign valid paths to all drones in the simulation.
 
         Initializes the simulation state, calculates a path for each

@@ -1,4 +1,7 @@
 import math
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, Union
+from custom_types import ConnectionDict, HubDict, ParsedData
 
 
 class Parser:
@@ -9,36 +12,36 @@ class Parser:
     by the simulation.
     """
 
-    VALID_FIELDS = [
+    VALID_FIELDS: List[str] = [
         "nb_drones",
         "start_hub",
         "hub",
         "end_hub",
         "connection",
     ]
-    VALID_ZONES = ["normal", "blocked", "restricted", "priority"]
+    VALID_ZONES: List[str] = ["normal", "blocked", "restricted", "priority"]
 
-    def __init__(self, path):
+    def __init__(self, path: Union[str, Path]) -> None:
         """Initialize the parser with an input file path.
 
         Args:
             path: Path to the input file containing the simulation data.
         """
-        self.path = path
-        self.hubs = {}
-        self.hub_names = {}
-        self.connections = {}
-        self.neighbours = {}
-        self.fields = []
-        self.hub_coords = []
-        self.edges = []
-        self.sorted_edges = []
-        self.nb_drones = 1
-        self.is_first_line = True
-        self.hub_idx = 1
-        self.connection_idx = 1
+        self.path: Union[str, Path] = path
+        self.hubs: Dict[str, HubDict] = {}
+        self.hub_names: Dict[str, int] = {}
+        self.connections: Dict[str, ConnectionDict] = {}
+        self.neighbours: Dict[str, List[str]] = {}
+        self.fields: List[str] = []
+        self.hub_coords: List[Tuple[int, int]] = []
+        self.edges: List[Tuple[str, str]] = []
+        self.sorted_edges: List[List[str]] = []
+        self.nb_drones: int = 1
+        self.is_first_line: bool = True
+        self.hub_idx: int = 1
+        self.connection_idx: int = 1
 
-    def parse(self):
+    def parse(self) -> ParsedData:
         """Parse the input file and return the simulation data.
 
         Reads each valid line from the input file, parses hubs and
@@ -113,7 +116,7 @@ class Parser:
             self.neighbours,
         )
 
-    def parse_hub(self, field, content):
+    def parse_hub(self, field: str, content: str) -> None:
         """Parse and store a hub definition.
 
         Extracts the hub name, coordinates, and optional metadata from the
@@ -133,12 +136,12 @@ class Parser:
                 invalid zone type is provided.
         """
         parts = content.split()
-        hub_name = parts[0]
+        hub_name: str = parts[0]
 
         if "-" in hub_name or " " in hub_name:
             raise TypeError("Hub names cannot contain dash '-' or space ' '")
 
-        hub_data = {
+        hub_data: HubDict = {
             "name": hub_name,
             "x": int(parts[1]),
             "y": int(parts[2]),
@@ -149,23 +152,26 @@ class Parser:
 
         self.hub_names[hub_name] = 0
 
-        coords = (hub_data["x"], hub_data["y"])
+        coords: Tuple[int, int] = (hub_data["x"], hub_data["y"])
 
         if coords in self.hub_coords:
             raise TypeError("Hub coords should be unique")
 
         self.hub_coords.append(coords)
 
-        hub_metadata = {}
+        hub_metadata: Dict[str, Any] = {}
         start = content.find("[")
         end = content.find("]")
 
         if start != -1 and end != -1:
+            meta_value: Union[str, int]
+
             for item in content[start + 1:end].split():
-                meta_key, meta_value = item.split("=")
+                meta_key, raw_value = item.split("=")
+                meta_value = raw_value
 
                 if meta_key == "max_drones":
-                    meta_value = int(meta_value)
+                    meta_value = int(raw_value)
 
                     if meta_value <= 0:
                         print(
@@ -198,7 +204,7 @@ class Parser:
         else:
             self.hubs[field] = hub_data
 
-    def parse_connection(self, content):
+    def parse_connection(self, content: str) -> None:
         """Parse and store a connection between two hubs.
 
         Extracts the connected hub names and optional connection metadata,
@@ -213,8 +219,8 @@ class Parser:
             TypeError: If the connection format is invalid or one of the
                 referenced hubs has not been declared.
         """
-        connection_data = {}
-        connection_metadata = {}
+        connection_data: ConnectionDict = {}
+        connection_metadata: Dict[str, Any] = {}
 
         edge = content.split()[0]
 
@@ -246,11 +252,14 @@ class Parser:
         end = content.find("]")
 
         if start != -1 and end != -1:
+            meta_value: Union[str, int]
+
             for item in content[start + 1:end].split():
-                meta_key, meta_value = item.split("=", 1)
+                meta_key, raw_value = item.split("=", 1)
+                meta_value = raw_value
 
                 if meta_key == "max_link_capacity":
-                    meta_value = int(meta_value)
+                    meta_value = int(raw_value)
 
                     if meta_value <= 0:
                         print(
@@ -276,7 +285,7 @@ class Parser:
         self.hub_names[to_hub] += 1
         self.edges.append((from_hub, to_hub))
 
-    def validate(self):
+    def validate(self) -> None:
         """Validate the parsed fields, hubs, and connections.
 
         Ensures that all required field types are present and verifies that
@@ -308,7 +317,7 @@ class Parser:
                     "(e.g., a-b and b-a are considered duplicates)"
                 )
 
-    def print_data(self):
+    def print_data(self) -> None:
         """Print the parsed drone, hub, and connection data.
 
         Displays the number of drones followed by the parsed hub and

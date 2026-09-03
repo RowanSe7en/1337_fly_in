@@ -1,10 +1,17 @@
-from tkinter import Tk, Canvas, PhotoImage, Button
+from tkinter import Button, Canvas, Event, PhotoImage, Tk
+from typing import Any, Dict, List, Optional, Tuple
+from custom_types import ParsedData
 
 
 class Display:
     """Display the Fly-in simulation using a Tkinter graphical interface."""
 
-    def __init__(self, data, zones_at_turnes, moves):
+    def __init__(
+        self,
+        data: ParsedData,
+        zones_at_turnes: List[Tuple[int, Dict[str, List[int]]]],
+        moves: int,
+    ) -> None:
         """Initialize the simulation display.
 
         Args:
@@ -17,19 +24,19 @@ class Display:
         self.data = data
         self.zones_at_turnes = zones_at_turnes
         self.moves = moves
-        self.current_turn = 0
-        self.zone_text_objects = {}
+        self.current_turn: int = 0
+        self.zone_text_objects: Dict[str, int] = {}
 
-        self.window = Tk()
+        self.window: Tk = Tk()
         self.window.title("Fly-in")
         self.window.attributes("-zoomed", True)
         self.window.config(bg="#021738")
         self.window.update()
 
-        self.window_width = self.window.winfo_width()
-        self.window_height = self.window.winfo_height()
+        self.window_width: int = self.window.winfo_width()
+        self.window_height: int = self.window.winfo_height()
 
-        self.canvas = Canvas(
+        self.canvas: Canvas = Canvas(
             self.window,
             width=self.window_width,
             height=self.window_height,
@@ -46,13 +53,13 @@ class Display:
             anchor="n"
         )
 
-        self.icon = PhotoImage(file="drone.png")
+        self.icon: PhotoImage = PhotoImage(file="drone.png")
         self.window.iconphoto(True, self.icon)
 
         self.window.bind("<Right>", self.next_turn)
         self.window.bind("<Left>", self.prev_turn)
 
-    def _format_zone_text(self, drone_ids):
+    def _format_zone_text(self, drone_ids: List[int]) -> str:
         """Format drone IDs for display inside a zone.
 
         The drone IDs are converted to text and split into lines of at
@@ -71,7 +78,7 @@ class Display:
             for i in range(0, len(text_content), 10)
         )
 
-    def _update_zone_texts(self):
+    def _update_zone_texts(self) -> None:
         """Update the displayed drone IDs for the current simulation turn.
 
         Reads the current turn snapshot and updates the corresponding
@@ -95,7 +102,7 @@ class Display:
                 text=formatted_text
             )
 
-    def next_turn(self, event=None):
+    def next_turn(self, event: Optional["Event[Any]"] = None) -> None:
         """Advance the display to the next simulation turn.
 
         Args:
@@ -116,7 +123,7 @@ class Display:
                 text=f"turn: {self.current_turn}"
             )
 
-    def prev_turn(self, event=None):
+    def prev_turn(self, event: Optional["Event[Any]"] = None) -> None:
         """Move the display back to the previous simulation turn.
 
         Args:
@@ -137,7 +144,7 @@ class Display:
                 text=f"turn: {self.current_turn}"
             )
 
-    def _create_navigation_buttons(self):
+    def _create_navigation_buttons(self) -> None:
         """Create buttons for navigating between simulation turns.
 
         Creates and positions the Previous and Next buttons at the
@@ -173,7 +180,7 @@ class Display:
             anchor="se"
         )
 
-    def _get_valid_color(self, color):
+    def _get_valid_color(self, color: Optional[str]) -> str:
         """Validate a Tkinter-compatible hub color.
 
         are validated using Tkinter's color parsing.
@@ -211,7 +218,7 @@ class Display:
 
         return color
 
-    def run(self):
+    def run(self) -> None:
         """Render the simulation map and start the Tkinter event loop.
 
         Creates the visual representation of hubs and connections,
@@ -224,9 +231,9 @@ class Display:
         """
         hubs, connections, nb_drones, neighbours = self.data
 
-        hub_coordinates = {}
-        x_coordinates = []
-        y_coordinates = []
+        hub_coordinates: Dict[str, Dict[str, Any]] = {}
+        x_coordinates: List[int] = []
+        y_coordinates: List[int] = []
 
         for hub in hubs.values():
             color = hub["metadata"].get(
@@ -264,7 +271,7 @@ class Display:
         )
 
         zone_size = 70
-        x_canvas_coordinates = {}
+        x_canvas_coordinates: Dict[int, int] = {}
         position = 0
 
         for coordinate in range(
@@ -277,7 +284,7 @@ class Display:
                 )
             position += 1
 
-        y_canvas_coordinates = {}
+        y_canvas_coordinates: Dict[int, int] = {}
         position = 0
 
         for coordinate in range(
@@ -290,7 +297,7 @@ class Display:
                 )
             position += 1
 
-        canvas_objects = {}
+        canvas_objects: Dict[str, int] = {}
 
         for hub_name, coordinates in hub_coordinates.items():
             x_position = (
@@ -354,7 +361,7 @@ class Display:
 
             canvas_objects[hub_name] = canvas_object
 
-        connection_coordinates = {}
+        connection_coordinates: Dict[str, Dict[str, float]] = {}
 
         for connection_name, connection in connections.items():
             from_hub_coords = self.canvas.coords(

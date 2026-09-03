@@ -1,12 +1,12 @@
 import math
 import heapq
 from drones import drones_list
-import copy
 
 
 class Algo:
 
     def __init__(self, data):
+
         self.data = data
 
         self.hubs, self.connections, self.nb_drones, self.neighbours = self.data
@@ -113,32 +113,16 @@ class Algo:
             unvisited_list=self.unvisited,
         )
 
+        if not math.isfinite(self.short_path_dict[self.end_hub][0]):
+            raise ValueError("no solution to the map")
+
     def get_zone_name(self, zone):
+
         for k, v in self.hubs.items():
             if v['name'] == zone:
                 return v['metadata']['zone']
 
         return None
-
-    def normalize_zone_turns(self):
-
-        if not self.zones_at_turnes:
-            return []
-
-        normalized = []
-        previous = None
-
-        for _old_turn, zones in self.zones_at_turnes:
-            snapshot = {
-                zone: list(drone_ids)
-                for zone, drone_ids in zones.items()
-            }
-            normalized.append(snapshot)
-
-        return [
-            (index, zones)
-            for index, zones in enumerate(normalized)
-        ]
 
     def ensure_zone_turn(self, turn):
 
@@ -218,222 +202,95 @@ class Algo:
 
         return False
 
-    def process_zone(self, drone, zone, turn):
+    def _has_capacity_for_search(self, zone, turn):
+        # start_hub is a staging area, never a bottleneck. NOTE: this
+        # is deliberately NOT zone_has_capacity() - that method checks
+        # "is there still room for a *further* drone after this one",
+        # which is the wrong question here (it under-counts by one and
+        # would treat any max_drones=1 zone as permanently full). Here
+        # we need the plain "can this drone enter" check.
+        if zone in (self.start_hub, self.end_hub):
+            return True
 
-        if zone in self.turnes[turn - 1][1]:
+        self.ensure_zone_turn(turn)
+        current_drones = len(self.zones_at_turnes[turn][1][zone])
 
-            drone.start_turn = turn
+        for hub in self.hubs.values():
+            if hub["name"] == zone:
+                return current_drones < hub["metadata"]["max_drones"]
 
-            zone_name = self.get_zone_name(zone)
+        return False
 
-            if zone_name == "restricted":
-                stay = 2
-            else:
-                stay = 1
+    def find_drone_path(self, start_turn):
 
-            for i in range(stay):
-                drone.path.append(zone)
+        start = self.start_hub
+        end = self.end_hub
 
-                if i >= 1:
-                    turn += 1
-                    self.turnes.append((
-                        turn,
-                        [
-                            n['name'] for n in self.hubs.values()
-                            if n['name'] not in [self.start_hub]
-                        ]
-                    ))
-                    self.ensure_zone_turn(turn)
-                self.ensure_zone_turn(turn)
+        pq = [(start_turn, start, [])]
+        visited = set()
 
-                if zone != self.end_hub and not self.zone_has_capacity(zone, turn):
-                    self.turnes[turn - 1][1].remove(zone)
-                self.move_drone(drone, zone, turn, "kayn")
-            return turn, False
+        while pq:
 
-        else:
-            is_found = 0
+            turn, zone, path = heapq.heappop(pq)
 
-            for e in self.neighbours[self.short_path_dict[zone][1]]:
-                zone_name = self.get_zone_name(zone)
+            if zone == end:
+                return path
 
-                if e in self.turnes[turn - 1][1] and zone_name != "blocked":
-                    is_found = 1
-                    break
-            if is_found:
+            if (zone, turn) in visited:
+                continue
+            visited.add((zone, turn))
 
-                added_cost = 0
+            if self._has_capacity_for_search(zone, turn + 1):
+                state = (zone, turn + 1)
+                if state not in visited:
+                    heapq.heappush(pq, (turn + 1, zone, path + [zone]))
 
-                for t in self.turnes:
-                    if zone not in t[1]:
-                        added_cost += 1
-                    else:
-                        break
+            for neighbour in self.neighbours.get(zone, []):
+                zone_type = self.get_zone_name(neighbour)
+                if zone_type == "blocked":
+                    continue
 
-                from_hub = self.short_path_dict[zone][1]
-                start_hub = from_hub
+                if not self._has_capacity_for_search(neighbour, turn + 1):
+                    continue
 
-                saved_short_path = list(self.short_path)
-                saved_short_path_dict = dict(self.short_path_dict)
-                saved_unvisited = list(self.unvisited)
-                
+                stay = 2 if zone_type == "restricted" else 1
+                if stay == 2 and not self._has_capacity_for_search(neighbour, turn + 2):
+                    continue
 
-                self.short_path, new_cost, self.short_path_dict, self.unvisited = (
-                    self.shortest_path_search(
-                        start_hub=from_hub,
-                        end_hub=self.end_hub,
-                        exclude_zones=[
-                            zone,
-                            self.short_path_dict[zone][1],
-                            self.short_path_dict[from_hub][1]
-                        ],
-                        allowed_zones=self.turnes[turn - 1][1],
-                        skip_blocked=False,
-                        from_placeholder=self.short_path_dict[from_hub][1],
+                new_turn = turn + stay
+                state = (neighbour, new_turn)
+                if state not in visited:
+                    heapq.heappush(
+                        pq, (new_turn, neighbour, path + [neighbour] * stay)
                     )
-                )
 
-                drone.start_turn = turn + added_cost
+        raise ValueError("No valid path exists between start and end zones")
 
-                if math.isfinite(new_cost) and new_cost <= self.cost + added_cost:
+    def commit_path(self, drone, path, start_turn):
 
-                    drone.start_turn = turn
+        turn = start_turn
 
-                    for zone in self.short_path:
-                        if len(self.turnes) < turn:
-                            self.turnes.append((
-                                turn,
-                                [
-                                    n['name'] for n in self.hubs.values()
-                                    if n['name'] not in [self.start_hub]
-                                ]
-                            ))
+        for zone in path:
+            turn += 1
 
-                        if len(self.turnes) >= turn:
-                            if zone in self.turnes[turn - 1][1]:
-                                zone_name = self.get_zone_name(zone)
+            if len(self.turnes) < turn:
+                self.turnes.append((
+                    turn,
+                    [
+                        n['name'] for n in self.hubs.values()
+                        if n['name'] not in [self.start_hub]
+                    ]
+                ))
+            self.ensure_zone_turn(turn)
 
-                                if zone_name == "restricted":
-                                    stay = 2
-                                elif zone_name == "normal":
-                                    stay = 1
+            drone.path.append(zone)
 
-                                for i in range(stay):
-                                    drone.path.append(zone)
+            if zone != self.end_hub and not self.zone_has_capacity(zone, turn):
+                self.turnes[turn - 1][1].remove(zone)
+            self.move_drone(drone, zone, turn, "search")
 
-                                    if i >= 1:
-                                        turn += 1
-
-                                        if len(self.turnes) < turn:
-                                            self.turnes.append((
-                                                turn,
-                                                [
-                                                    n['name']
-                                                    for n in self.hubs.values()
-                                                    if n['name']
-                                                    not in [self.start_hub]
-                                                ]
-                                            ))
-
-                                    if zone != self.end_hub and not self.zone_has_capacity(zone, turn):
-                                        self.turnes[turn - 1][1].remove(zone)
-                                    self.move_drone(drone, zone, turn, "badil")
-
-                        turn += 1
-
-                    return turn, True
-
-                self.short_path = saved_short_path
-                self.short_path_dict = saved_short_path_dict
-                self.unvisited = saved_unvisited
-                self.zones_at_turnes = self.saved_zones_at_turnes
-                self.turnes = self.saved_turnes
-                is_found = 0
-
-            if not is_found:
-
-                self.turnes = self.saved_turnes
-                self.zones_at_turnes = self.saved_zones_at_turnes
-                turn = 1
-
-
-                looking_for_cost = math.inf
-                looking_for_path = []
-
-                for path in self.all_paths:
-                    if path[0] < looking_for_cost:
-                        looking_for_cost = path[0]
-                        looking_for_path = path
-
-                new_zone = looking_for_path[1][0]
-                added_new_cost = 0
-
-                for t in self.turnes:
-                    if new_zone not in t[1]:
-                        added_new_cost += 1
-                    else:
-                        break
-
-                drone.start_turn = turn + added_new_cost
-
-                drone.path = looking_for_path[1]
-                turn = drone.start_turn
-
-
-                for path in drone.path:
-                    added_turns = 0
-
-                    if len(self.turnes) < turn:
-                        self.turnes.append((
-                            turn,
-                            [
-                                n['name'] for n in self.hubs.values()
-                                if n['name'] not in [self.start_hub]
-                            ]
-                        ))
-                    self.ensure_zone_turn(turn)
-
-                    if path in self.turnes[turn - 1][1]:
-
-                        if path != self.end_hub and not self.zone_has_capacity(path, turn):
-                            self.turnes[turn - 1][1].remove(path)
-                        self.move_drone(drone, path, turn, "no")
-
-                    else:
-                        while True:
-                            i = drone.path.index(path)
-                            drone.path.insert(i, drone.path[i - 1])
-
-                            if drone.path[i - 1] != self.end_hub and not self.zone_has_capacity(drone.path[i - 1], turn):
-                                self.turnes[turn - 1][1].remove(drone.path[i - 1])
-                            self.move_drone(
-                                drone, drone.path[i - 1], turn, "no2"
-                            )
-                            turn += 1
-                            added_turns += 1
-
-                            if len(self.turnes) < turn:
-                                self.turnes.append((
-                                    turn,
-                                    [
-                                        n['name'] for n in self.hubs.values()
-                                        if n['name'] not in [self.start_hub]
-                                    ]
-                                ))
-
-                            if path in self.turnes[turn - 1][1]:
-                                break
-
-                    turn -= added_turns
-                    turn += 1
-
-                looking_for_path[0] = (
-                    added_new_cost + len(drone.path) + 1
-                )
-
-                return turn, True
-
-        return turn, False
+        drone.start_turn = start_turn + 1
+        return turn
 
     def ecah_drone_path_assigner(self):
 
@@ -451,55 +308,11 @@ class Algo:
                 }
             )
         ]
-        self.zones_at_turnes[:] = self.normalize_zone_turns()
-
-        original_short_path = list(self.short_path)
-        original_short_path_dict = dict(self.short_path_dict)
-        original_unvisited = list(self.unvisited)
 
         for drone in drones_list:
 
-            self.short_path = list(original_short_path)
-            self.short_path_dict = dict(original_short_path_dict)
-            self.unvisited = list(original_unvisited)
-
-            self.saved_turnes = copy.deepcopy(self.turnes)
-            self.saved_zones_at_turnes = copy.deepcopy(self.zones_at_turnes)
-
-            # print("drone.id", drone.id)
-            turn = 0
-            cost = 0
-            for zone in self.short_path:
-                turn += 1
-
-                if len(self.turnes) >= turn:
-                    turn, should_break = self.process_zone(
-                        drone,
-                        zone,
-                        turn,
-                    )
-
-                    if should_break:
-                        break
-
-                else:
-                    self.turnes.append((
-                        turn,
-                        [
-                            n['name'] for n in self.hubs.values()
-                            if n['name'] not in [self.start_hub]
-                        ]
-                    ))
-                    self.ensure_zone_turn(turn)
-
-                    turn, should_break = self.process_zone(
-                        drone,
-                        zone,
-                        turn,
-                    )
-
-                    if should_break:
-                        break
+            path = self.find_drone_path(start_turn=0)
+            self.commit_path(drone, path, start_turn=0)
 
             can_i_add = 1
             for e in self.all_paths:
@@ -508,13 +321,7 @@ class Algo:
                     break
             if can_i_add:
                 self.all_paths.append([len(drone.path) + 1, drone.path])
-            # print("turnes:", self.turnes)
-            self.zones_at_turnes[:] = self.normalize_zone_turns()
-            # print("zones_at_turnes:", self.zones_at_turnes)
-            # print("drone.path:", drone.path)
-            # print("self.all_paths:", self.all_paths)
-            # print("-------------------------------------")
-            # print(self.turnes[-1][0] + 1)
+
         return self.zones_at_turnes
 
     def _connection_name(self, from_zone, to_zone):
@@ -566,6 +373,8 @@ class Algo:
 
         pending_restricted_arrival = {}
 
+        turns = 0
+
         for t in range(1, len(self.zones_at_turnes)):
             if len(delivered) >= total_drones:
                 break
@@ -605,3 +414,6 @@ class Algo:
             if moves:
                 moves.sort(key=lambda m: m[0])
                 print(" ".join(text for _drone_id, text in moves))
+                turns += 1
+
+        return turns

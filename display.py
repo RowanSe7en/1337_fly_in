@@ -3,11 +3,11 @@ from tkinter import Tk, Canvas, PhotoImage, Button
 
 class Display:
 
-    def __init__(self, data, zones_at_turnes):
+    def __init__(self, data, zones_at_turnes, moves):
 
         self.data = data
         self.zones_at_turnes = zones_at_turnes
-
+        self.moves = moves
         self.current_turn = 0
         self.zone_text_objects = {}
 
@@ -39,7 +39,6 @@ class Display:
 
         self.icon = PhotoImage(file="drone.png")
         self.window.iconphoto(True, self.icon)
-
         self.window.bind("<Right>", self.next_turn)
         self.window.bind("<Left>", self.prev_turn)
 
@@ -54,12 +53,17 @@ class Display:
 
     def _update_zone_texts(self):
 
-        turn_data = self.zones_at_turnes[self.current_turn][1]
+        turn_data = self.zones_at_turnes[
+            self.current_turn
+        ][1]
 
         for zone_name, drone_ids in turn_data.items():
 
             text_object = self.zone_text_objects[zone_name]
-            formatted_text = self._format_zone_text(drone_ids)
+
+            formatted_text = self._format_zone_text(
+                drone_ids
+            )
 
             self.canvas.itemconfig(
                 text_object,
@@ -68,7 +72,7 @@ class Display:
 
     def next_turn(self, event=None):
 
-        if self.current_turn < len(self.zones_at_turnes) - 1:
+        if self.current_turn < self.moves:
 
             self.current_turn += 1
             self._update_zone_texts()
@@ -120,6 +124,15 @@ class Display:
             anchor="se"
         )
 
+    def _get_valid_color(self, color):
+
+        try:
+            self.window.winfo_rgb(color)
+            return color
+
+        except Exception:
+            return "#a699e8"
+
     def run(self):
 
         hubs, connections, nb_drones, neighbours = self.data
@@ -129,9 +142,17 @@ class Display:
 
         for hub in hubs.values():
 
+            color = hub["metadata"].get(
+                "color",
+                "#a699e8"
+            )
+
+            color = self._get_valid_color(color)
+
             hub_coordinates[hub["name"]] = {
                 "x": hub["x"],
-                "y": hub["y"]
+                "y": hub["y"],
+                "color": color
             }
 
             x_coordinates.append(hub["x"])
@@ -155,7 +176,7 @@ class Display:
             self.window_height / y_range
         )
 
-        zone_size = 100
+        zone_size = 70
         x_canvas_coordinates = {}
         position = 0
 
@@ -189,15 +210,17 @@ class Display:
             position += 1
         canvas_objects = {}
 
-        # print("hub_coordinates", hub_coordinates)
-
         for hub_name, coordinates in hub_coordinates.items():
 
             x_position = (
-                x_canvas_coordinates[coordinates["x"]]
+                x_canvas_coordinates[
+                    coordinates["x"]
+                ]
             )
             y_position = (
-                y_canvas_coordinates[coordinates["y"]]
+                y_canvas_coordinates[
+                    coordinates["y"]
+                ]
             )
 
             nx_position = x_position + zone_size
@@ -208,7 +231,7 @@ class Display:
                 y_position,
                 nx_position,
                 ny_position,
-                fill="#a699e8"
+                fill=coordinates["color"]
             )
 
             self.canvas.create_text(
@@ -217,7 +240,7 @@ class Display:
                 ),
                 ny_position - zone_size - 20,
                 text=hub_name,
-                font=("courier", 16, "bold"),
+                font=("courier", 13, "bold"),
                 fill="#5262d5",
                 anchor="n"
             )
@@ -238,7 +261,7 @@ class Display:
                 ),
                 ny_position + 20,
                 text=formatted_text,
-                font=("courier", 16, "bold"),
+                font=("courier", 13, "bold"),
                 fill="#5262d5",
                 anchor="n"
             )

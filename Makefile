@@ -1,14 +1,11 @@
-PYTHON = uv run python3
-MAIN = fly_in_takeoff.py
-
 run:
-	$(PYTHON) $(MAIN)
+	uv run python3 fly_in_takeoff.py
 
 install:
 	uv sync
 
 debug:
-	uv run python3 -m pdb $(MAIN)
+	uv run python3 -m pdb fly_in_takeoff.py
 
 clean:
 	rm -rf __pycache__

@@ -5,6 +5,7 @@ from parsing import Parser
 from algo_start import Algo
 from drones import drone_creator
 from display import Display
+from zone_reachability import ZoneReachability
 
 
 def main():
@@ -49,14 +50,16 @@ def main():
 
 
 
+    zone_reach = ZoneReachability(data)
+    zone_reach.check_all_zones_reachable()
     algo = Algo(data)
     algo.find_the_shortest_path()
 
     drone_creator(algo.nb_drones)
     zones_at_turnes = algo.ecah_drone_path_assigner()
-    algo.print_simulation()
+    moves = algo.print_simulation()
 
-    display = Display(data, zones_at_turnes)
+    display = Display(data,zones_at_turnes, moves)
     display.run()
 
 

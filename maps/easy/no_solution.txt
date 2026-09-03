@@ -1,0 +1,20 @@
+# BLOCKED GOAL MAP
+# The only route to the goal passes through a blocked zone.
+
+nb_drones: 2
+
+start_hub: start 0 0 [color=green]
+
+hub: waypoint1 1 0 [color=blue max_drones=2]
+
+# This is the only zone connecting to the goal
+hub: blocked_gate 2 0 [zone=blocked color=black]
+
+end_hub: goal 3 0 [color=red]
+
+
+# Connections
+
+connection: start-waypoint1
+connection: waypoint1-blocked_gate
+connection: blocked_gate-goal

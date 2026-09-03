@@ -1,0 +1,34 @@
+# Map with unreachable zones
+
+nb_drones: 3
+
+start_hub: start 0 0 [color=green]
+
+# Reachable path to goal
+hub: waypoint1 1 0 [color=red max_drones=1]
+hub: waypoint2 2 0 [zone=restricted color=red max_drones=1]
+hub: waypoint3 3 0 [color=red max_drones=1]
+
+end_hub: goal 4 0 [color=green]
+
+# Unreachable group
+hub: unreachable1 1 3 [color=black]
+hub: unreachable2 2 3 [zone=restricted color=black]
+hub: unreachable3 3 3 [color=black]
+
+# Another unreachable group
+hub: isolated1 6 1 [color=purple]
+hub: isolated2 7 1 [color=purple]
+
+# Reachable connections
+connection: start-waypoint1
+connection: waypoint1-waypoint2
+connection: waypoint2-waypoint3
+connection: waypoint3-goal
+
+# These zones are connected to each other,
+# but there is NO connection from start to them
+connection: unreachable1-unreachable2
+connection: unreachable2-unreachable3
+
+connection: isolated1-isolated2

@@ -9,7 +9,12 @@ class Algo:
 
         self.data = data
 
-        self.hubs, self.connections, self.nb_drones, self.neighbours = self.data
+        (
+            self.hubs,
+            self.connections,
+            self.nb_drones,
+            self.neighbours,
+        ) = self.data
 
         self.start_hub = self.hubs['start_hub']['name']
         self.end_hub = self.hubs['end_hub']['name']
@@ -22,9 +27,16 @@ class Algo:
         self.turnes = []
         self.zones_at_turnes = []
 
-    def shortest_path_search(self, start_hub, end_hub, unvisited_list=None,
-                               exclude_zones=None, allowed_zones=None,
-                               skip_blocked=True, from_placeholder="none"):
+    def shortest_path_search(
+        self,
+        start_hub,
+        end_hub,
+        unvisited_list=None,
+        exclude_zones=None,
+        allowed_zones=None,
+        skip_blocked=True,
+        from_placeholder="none",
+    ):
 
         if unvisited_list is None:
             unvisited_list = [v['name'] for v in self.hubs.values()]
@@ -39,21 +51,25 @@ class Algo:
         initiate_neighbours = list(self.neighbours[from_hub])
         cost = 0
         unvisited_list.remove(from_hub)
-        i = 0
 
         while initiate_neighbours:
-            i += 1
 
             for zone in initiate_neighbours:
                 is_blocked = 0
-                if zone in unvisited_list and (exclude_zones is None or zone not in exclude_zones):
+                if (
+                    zone in unvisited_list
+                    and (exclude_zones is None or zone not in exclude_zones)
+                ):
                     for hub_data in self.hubs.values():
                         if hub_data['name'] == zone:
                             if hub_data['metadata']['zone'] == "blocked":
                                 if skip_blocked:
                                     is_blocked = 1
                                 break
-                            elif hub_data['metadata']['zone'] in ["normal", "priority"]:
+                            elif hub_data['metadata']['zone'] in (
+                                "normal",
+                                "priority",
+                            ):
                                 cost = 1
                                 break
                             elif hub_data['metadata']['zone'] == "restricted":
@@ -65,31 +81,51 @@ class Algo:
 
                     if allowed_zones is None:
                         if zone in path_dict:
-                            if path_dict[zone][0] > path_dict[from_hub][0] + cost:
-                                path_dict[zone] = (path_dict[from_hub][0] + cost, from_hub)
+                            if (
+                                path_dict[zone][0]
+                                > path_dict[from_hub][0] + cost
+                            ):
+                                path_dict[zone] = (
+                                    path_dict[from_hub][0] + cost,
+                                    from_hub,
+                                )
                         else:
-                            path_dict[zone] = (path_dict[from_hub][0] + cost, from_hub)
+                            path_dict[zone] = (
+                                path_dict[from_hub][0] + cost,
+                                from_hub,
+                            )
                     else:
                         if zone in path_dict and zone in allowed_zones:
-                            if path_dict[zone][0] > path_dict[from_hub][0] + cost:
-                                path_dict[zone] = (path_dict[from_hub][0] + cost, from_hub)
+                            if (
+                                path_dict[zone][0]
+                                > path_dict[from_hub][0] + cost
+                            ):
+                                path_dict[zone] = (
+                                    path_dict[from_hub][0] + cost,
+                                    from_hub,
+                                )
                         else:
                             if zone in allowed_zones:
-                                path_dict[zone] = (path_dict[from_hub][0] + cost, from_hub)
+                                path_dict[zone] = (
+                                    path_dict[from_hub][0] + cost,
+                                    from_hub,
+                                )
 
             heap = []
             for zone, (zone_cost, zone_from_hub) in path_dict.items():
                 if zone in unvisited_list:
                     heapq.heappush(heap, (zone_cost, zone_from_hub, zone))
 
-            smallest_cost, from_hub, lower_cost_zone_name = heapq.heappop(heap)
+            _, _, lower_cost_zone_name = heapq.heappop(heap)
             unvisited_list.remove(lower_cost_zone_name)
             from_hub = lower_cost_zone_name
 
             if not lower_cost_zone_name or lower_cost_zone_name == end_hub:
                 break
             else:
-                initiate_neighbours = list(self.neighbours[lower_cost_zone_name])
+                initiate_neighbours = list(
+                    self.neighbours[lower_cost_zone_name]
+                )
 
         if not math.isfinite(path_dict[end_hub][0]):
             return [], path_dict[end_hub][0], path_dict, unvisited_list
@@ -107,7 +143,12 @@ class Algo:
 
     def find_the_shortest_path(self):
 
-        self.short_path, self.cost, self.short_path_dict, self.unvisited = self.shortest_path_search(
+        (
+            self.short_path,
+            self.cost,
+            self.short_path_dict,
+            self.unvisited,
+        ) = self.shortest_path_search(
             start_hub=self.start_hub,
             end_hub=self.end_hub,
             unvisited_list=self.unvisited,
@@ -118,7 +159,7 @@ class Algo:
 
     def get_zone_type(self, zone):
 
-        for k, v in self.hubs.items():
+        for v in self.hubs.values():
             if v['name'] == zone:
                 return v['metadata']['zone']
 
@@ -141,7 +182,13 @@ class Algo:
                 return zone_name
         return None
 
-    def update_future_zone_turns(self, drone, changed_turn, old_zone, new_zone):
+    def update_future_zone_turns(
+        self,
+        drone,
+        changed_turn,
+        old_zone,
+        new_zone,
+    ):
 
         if old_zone == new_zone or old_zone is None:
             return
@@ -249,7 +296,10 @@ class Algo:
                     continue
 
                 stay = 2 if zone_type == "restricted" else 1
-                if stay == 2 and not self._has_capacity_for_search(neighbour, turn + 2):
+                if (
+                    stay == 2
+                    and not self._has_capacity_for_search(neighbour, turn + 2)
+                ):
                     continue
 
                 new_turn = turn + stay
@@ -288,7 +338,16 @@ class Algo:
 
     def ecah_drone_path_assigner(self):
 
-        self.turnes = [(1, [n['name'] for n in self.hubs.values() if n['name'] not in [self.start_hub]])]
+        self.turnes = [
+            (
+                1,
+                [
+                    hub['name']
+                    for hub in self.hubs.values()
+                    if hub['name'] not in [self.start_hub]
+                ],
+            )
+        ]
         self.zones_at_turnes = [
             (
                 0,

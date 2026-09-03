@@ -1,9 +1,11 @@
 class ZoneReachability:
+
     def __init__(self, data):
 
         self.hubs, _, _, self.neighbours = data
 
     def check_all_zones_reachable(self):
+
         start_zone = self.hubs["start_hub"]["name"]
 
         visited = set()

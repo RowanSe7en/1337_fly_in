@@ -126,12 +126,28 @@ class Display:
 
     def _get_valid_color(self, color):
 
+        if color is None:
+            raise ValueError(
+                "Hub metadata is missing the required 'color' field."
+            )
+
+        if not isinstance(color, str):
+            raise ValueError(
+                f"Invalid color type: {color!r}. "
+                "Color must be a string."
+            )
+
+        if color.lower() == "rainbow":
+            return "yellow"
+
         try:
             self.window.winfo_rgb(color)
-            return color
+        except Exception as error:
+            raise ValueError(
+                f"Invalid color: {color!r}."
+            ) from error
 
-        except Exception:
-            return "#a699e8"
+        return color
 
     def run(self):
 

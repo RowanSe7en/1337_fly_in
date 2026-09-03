@@ -6,6 +6,7 @@ from algo_start import Algo
 from drones import drone_creator
 from display import Display
 from zone_reachability import ZoneReachability
+from simulation_printer import SimulationPrinter
 
 
 def main():
@@ -57,7 +58,8 @@ def main():
 
     drone_creator(algo.nb_drones)
     zones_at_turnes = algo.ecah_drone_path_assigner()
-    moves = algo.print_simulation()
+    visual = SimulationPrinter()
+    moves = visual.print_simulation()
 
     display = Display(data,zones_at_turnes, moves)
     display.run()

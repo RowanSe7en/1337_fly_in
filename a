@@ -1,1 +1,0 @@
-hub_coordinates {'start': {'x': 0, 'y': 0}, 'waypoint1': {'x': 1, 'y': -1}, 'waypoint2': {'x': 2, 'y': 0}, 'waypoint3': {'x': 1, 'y': 1}, 'waypoint4': {'x': 3, 'y': -1}, 'waypoint5': {'x': 2, 'y': 1}, 'goal': {'x': 3, 'y': 0}}

@@ -114,9 +114,9 @@ class Algo:
         )
 
         if not math.isfinite(self.short_path_dict[self.end_hub][0]):
-            raise ValueError("no solution to the map")
+            raise ValueError("No solution to the map")
 
-    def get_zone_name(self, zone):
+    def get_zone_type(self, zone):
 
         for k, v in self.hubs.items():
             if v['name'] == zone:
@@ -203,12 +203,7 @@ class Algo:
         return False
 
     def _has_capacity_for_search(self, zone, turn):
-        # start_hub is a staging area, never a bottleneck. NOTE: this
-        # is deliberately NOT zone_has_capacity() - that method checks
-        # "is there still room for a *further* drone after this one",
-        # which is the wrong question here (it under-counts by one and
-        # would treat any max_drones=1 zone as permanently full). Here
-        # we need the plain "can this drone enter" check.
+
         if zone in (self.start_hub, self.end_hub):
             return True
 
@@ -246,7 +241,7 @@ class Algo:
                     heapq.heappush(pq, (turn + 1, zone, path + [zone]))
 
             for neighbour in self.neighbours.get(zone, []):
-                zone_type = self.get_zone_name(neighbour)
+                zone_type = self.get_zone_type(neighbour)
                 if zone_type == "blocked":
                     continue
 
@@ -290,7 +285,6 @@ class Algo:
             self.move_drone(drone, zone, turn, "search")
 
         drone.start_turn = start_turn + 1
-        return turn
 
     def ecah_drone_path_assigner(self):
 
@@ -323,97 +317,3 @@ class Algo:
                 self.all_paths.append([len(drone.path) + 1, drone.path])
 
         return self.zones_at_turnes
-
-    def _connection_name(self, from_zone, to_zone):
-
-        candidate_keys = [
-            (from_zone, to_zone),
-            (to_zone, from_zone),
-            f"{from_zone}-{to_zone}",
-            f"{to_zone}-{from_zone}",
-            frozenset((from_zone, to_zone)),
-        ]
-
-        connections = self.connections
-        if isinstance(connections, dict):
-            for key in candidate_keys:
-                try:
-                    if key in connections:
-                        value = connections[key]
-                        if isinstance(value, dict):
-                            return value.get(
-                                'name',
-                                key if isinstance(key, str) else f"{from_zone}-{to_zone}"
-                            )
-                        if isinstance(value, str):
-                            return value
-                        return key if isinstance(key, str) else f"{from_zone}-{to_zone}"
-                except TypeError:
-                    continue
-
-        elif isinstance(connections, (list, tuple, set)):
-            for conn in connections:
-                if isinstance(conn, dict):
-                    a = conn.get('from') or conn.get('a') or conn.get('start') or conn.get('start_hub')
-                    b = conn.get('to') or conn.get('b') or conn.get('end') or conn.get('end_hub')
-                    if a is not None and b is not None and {a, b} == {from_zone, to_zone}:
-                        return conn.get('name', f"{from_zone}-{to_zone}")
-                elif isinstance(conn, str) and from_zone in conn and to_zone in conn:
-                    return conn
-
-        return f"{from_zone}-{to_zone}"
-
-    def print_simulation(self):
-
-        if not self.zones_at_turnes:
-            return
-
-        total_drones = len(drones_list)
-        delivered = set()
-
-        pending_restricted_arrival = {}
-
-        turns = 0
-
-        for t in range(1, len(self.zones_at_turnes)):
-            if len(delivered) >= total_drones:
-                break
-
-            prev_snapshot = self.zones_at_turnes[t - 1][1]
-            curr_snapshot = self.zones_at_turnes[t][1]
-
-            moves = []
-
-            for drone in drones_list:
-                if drone.id in delivered:
-                    continue
-
-                prev_zone = self.drone_at_which_zone(drone, prev_snapshot)
-                curr_zone = self.drone_at_which_zone(drone, curr_snapshot)
-
-                if curr_zone is None:
-                    continue
-
-                if curr_zone == prev_zone:
-                    if pending_restricted_arrival.get(drone.id) == curr_zone:
-                        moves.append((drone.id, f"D{drone.id}-{curr_zone}"))
-                        del pending_restricted_arrival[drone.id]
-                        if curr_zone == self.end_hub:
-                            delivered.add(drone.id)
-                    continue
-
-                if self.get_zone_name(curr_zone) == "restricted":
-                    connection = self._connection_name(prev_zone, curr_zone)
-                    moves.append((drone.id, f"D{drone.id}-{connection}"))
-                    pending_restricted_arrival[drone.id] = curr_zone
-                else:
-                    moves.append((drone.id, f"D{drone.id}-{curr_zone}"))
-                    if curr_zone == self.end_hub:
-                        delivered.add(drone.id)
-
-            if moves:
-                moves.sort(key=lambda m: m[0])
-                print(" ".join(text for _drone_id, text in moves))
-                turns += 1
-
-        return turns

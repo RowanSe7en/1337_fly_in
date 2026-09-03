@@ -2,31 +2,57 @@ import math
 
 
 class Parser:
+    """Parse and validate the Fly-in simulation input file.
 
-    VALID_FIELDS = ["nb_drones", "start_hub", "hub", "end_hub", "connection"]
+    The parser reads hub, connection, and drone information from an input
+    file, validates the provided data, and builds the structures required
+    by the simulation.
+    """
+
+    VALID_FIELDS = [
+        "nb_drones",
+        "start_hub",
+        "hub",
+        "end_hub",
+        "connection",
+    ]
     VALID_ZONES = ["normal", "blocked", "restricted", "priority"]
 
     def __init__(self, path):
+        """Initialize the parser with an input file path.
 
+        Args:
+            path: Path to the input file containing the simulation data.
+        """
         self.path = path
-
         self.hubs = {}
         self.hub_names = {}
         self.connections = {}
         self.neighbours = {}
-
         self.fields = []
         self.hub_coords = []
         self.edges = []
         self.sorted_edges = []
-
         self.nb_drones = 1
         self.is_first_line = True
-
         self.hub_idx = 1
         self.connection_idx = 1
 
     def parse(self):
+        """Parse the input file and return the simulation data.
+
+        Reads each valid line from the input file, parses hubs and
+        connections, validates the resulting data, and builds the neighbour
+        relationships between hubs.
+
+        Returns:
+            tuple: A tuple containing the hubs, connections, number of
+            drones, and neighbour mappings.
+
+        Raises:
+            TypeError: If the input contains invalid fields, invalid field
+            ordering, or malformed hub or connection data.
+        """
 
         with open(self.path, "r") as file:
 
@@ -74,18 +100,39 @@ class Parser:
                     raise TypeError("nb_drones should be the first field")
 
                 if field in ("start_hub", "hub", "end_hub"):
-                    self._parse_hub(field, content)
-
+                    self.parse_hub(field, content)
                 elif field == "connection":
-                    self._parse_connection(content)
+                    self.parse_connection(content)
 
-        self._validate()
+        self.validate()
 
-        return self.hubs, self.connections, self.nb_drones, self.neighbours
+        return (
+            self.hubs,
+            self.connections,
+            self.nb_drones,
+            self.neighbours,
+        )
 
-    def _parse_hub(self, field, content):
+    def parse_hub(self, field, content):
+        """Parse and store a hub definition.
+
+        Extracts the hub name, coordinates, and optional metadata from the
+        provided content. The method validates hub names and coordinates,
+        applies default metadata values, and stores the hub in the parser's
+        hub collection.
+
+        Args:
+            field: Type of hub being parsed, such as ``start_hub``,
+                ``hub``, or ``end_hub``.
+            content: Raw hub definition containing the name, coordinates,
+                and optional metadata.
+
+        Raises:
+            TypeError: If the hub name contains invalid characters, a hub
+                name is duplicated, coordinates are duplicated, or an
+                invalid zone type is provided.
+        """
         parts = content.split()
-
         hub_name = parts[0]
 
         if "-" in hub_name or " " in hub_name:
@@ -110,7 +157,6 @@ class Parser:
         self.hub_coords.append(coords)
 
         hub_metadata = {}
-
         start = content.find("[")
         end = content.find("]")
 
@@ -152,7 +198,21 @@ class Parser:
         else:
             self.hubs[field] = hub_data
 
-    def _parse_connection(self, content):
+    def parse_connection(self, content):
+        """Parse and store a connection between two hubs.
+
+        Extracts the connected hub names and optional connection metadata,
+        updates the neighbour relationships, and stores the connection in
+        the parser's connection collection.
+
+        Args:
+            content: Raw connection definition containing the connected
+                hubs and optional metadata.
+
+        Raises:
+            TypeError: If the connection format is invalid or one of the
+                referenced hubs has not been declared.
+        """
         connection_data = {}
         connection_metadata = {}
 
@@ -176,7 +236,10 @@ class Parser:
         else:
             self.neighbours[to_hub] = [from_hub]
 
-        if from_hub not in self.hub_names or to_hub not in self.hub_names:
+        if (
+            from_hub not in self.hub_names
+            or to_hub not in self.hub_names
+        ):
             raise TypeError("Edge name not found, or not declared yet")
 
         start = content.find("[")
@@ -191,8 +254,8 @@ class Parser:
 
                     if meta_value <= 0:
                         print(
-                            "max_link_capacity should be at least 1 or more, "
-                            "falling back to the default value 1"
+                            "max_link_capacity should be at least 1 or "
+                            "more, falling back to the default value 1"
                         )
                         meta_value = 1
 
@@ -204,15 +267,26 @@ class Parser:
         connection_data["to_hub"] = to_hub
         connection_data["metadata"] = connection_metadata
 
-        self.connections[f"connection{self.connection_idx}"] = connection_data
-        self.connection_idx += 1
+        self.connections[
+            f"connection{self.connection_idx}"
+        ] = connection_data
 
+        self.connection_idx += 1
         self.hub_names[from_hub] += 1
         self.hub_names[to_hub] += 1
-
         self.edges.append((from_hub, to_hub))
 
-    def _validate(self):
+    def validate(self):
+        """Validate the parsed fields, hubs, and connections.
+
+        Ensures that all required field types are present and verifies that
+        duplicate connections do not exist. A connection is considered a
+        duplicate regardless of the order of its two hubs.
+
+        Raises:
+            TypeError: If required fields are missing or the same connection
+                appears more than once.
+        """
         if sorted(self.VALID_FIELDS) != sorted(self.fields):
             raise TypeError(
                 f"You missed one of these fields {self.VALID_FIELDS}"
@@ -235,13 +309,21 @@ class Parser:
                 )
 
     def print_data(self):
+        """Print the parsed drone, hub, and connection data.
 
+        Displays the number of drones followed by the parsed hub and
+        connection dictionaries.
+
+        Returns:
+            None: This method prints the parsed data to standard output.
+        """
         print(f"nb_drones: {self.nb_drones}")
-
         print("-------------------")
+
         for hub_name, hub_data in self.hubs.items():
             print(f"{hub_name} = {hub_data}")
 
         print("-------------------")
+
         for connection_name, connection_data in self.connections.items():
             print(f"{connection_name} = {connection_data}")

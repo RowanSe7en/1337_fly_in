@@ -2,9 +2,18 @@ from tkinter import Tk, Canvas, PhotoImage, Button
 
 
 class Display:
+    """Display the Fly-in simulation using a Tkinter graphical interface."""
 
     def __init__(self, data, zones_at_turnes, moves):
+        """Initialize the simulation display.
 
+        Args:
+            data: Parsed simulation data containing hubs, connections,
+                number of drones, and neighbours.
+            zones_at_turnes: Simulation snapshots containing drone
+                positions for each turn.
+            moves: Number of simulation turns containing drone movements.
+        """
         self.data = data
         self.zones_at_turnes = zones_at_turnes
         self.moves = moves
@@ -12,11 +21,11 @@ class Display:
         self.zone_text_objects = {}
 
         self.window = Tk()
-
         self.window.title("Fly-in")
         self.window.attributes("-zoomed", True)
         self.window.config(bg="#021738")
         self.window.update()
+
         self.window_width = self.window.winfo_width()
         self.window_height = self.window.winfo_height()
 
@@ -39,11 +48,22 @@ class Display:
 
         self.icon = PhotoImage(file="drone.png")
         self.window.iconphoto(True, self.icon)
+
         self.window.bind("<Right>", self.next_turn)
         self.window.bind("<Left>", self.prev_turn)
 
     def _format_zone_text(self, drone_ids):
+        """Format drone IDs for display inside a zone.
 
+        The drone IDs are converted to text and split into lines of at
+        most ten characters.
+
+        Args:
+            drone_ids: Collection of drone IDs currently in the zone.
+
+        Returns:
+            str: Formatted drone ID text with line breaks inserted.
+        """
         text_content = str(drone_ids)
 
         return "\n".join(
@@ -52,15 +72,20 @@ class Display:
         )
 
     def _update_zone_texts(self):
+        """Update the displayed drone IDs for the current simulation turn.
 
+        Reads the current turn snapshot and updates the corresponding
+        Tkinter text objects for every zone.
+
+        Returns:
+            None: The zone text objects are updated in place.
+        """
         turn_data = self.zones_at_turnes[
             self.current_turn
         ][1]
 
         for zone_name, drone_ids in turn_data.items():
-
             text_object = self.zone_text_objects[zone_name]
-
             formatted_text = self._format_zone_text(
                 drone_ids
             )
@@ -71,9 +96,17 @@ class Display:
             )
 
     def next_turn(self, event=None):
+        """Advance the display to the next simulation turn.
 
+        Args:
+            event: Optional Tkinter keyboard event that triggered the
+                method.
+
+        Returns:
+            None: The current turn and displayed zone data are updated
+            when another turn is available.
+        """
         if self.current_turn < self.moves:
-
             self.current_turn += 1
             self._update_zone_texts()
             print("Current turn:", self.current_turn)
@@ -84,9 +117,17 @@ class Display:
             )
 
     def prev_turn(self, event=None):
+        """Move the display back to the previous simulation turn.
 
+        Args:
+            event: Optional Tkinter keyboard event that triggered the
+                method.
+
+        Returns:
+            None: The current turn and displayed zone data are updated
+            when a previous turn is available.
+        """
         if self.current_turn > 0:
-
             self.current_turn -= 1
             self._update_zone_texts()
             print("Current turn:", self.current_turn)
@@ -97,7 +138,15 @@ class Display:
             )
 
     def _create_navigation_buttons(self):
+        """Create buttons for navigating between simulation turns.
 
+        Creates and positions the Previous and Next buttons at the
+        bottom-right corner of the simulation window.
+
+        Returns:
+            None: The navigation buttons are created and placed in the
+            Tkinter window.
+        """
         prev_button = Button(
             self.window,
             text="Prev",
@@ -125,7 +174,20 @@ class Display:
         )
 
     def _get_valid_color(self, color):
+        """Validate a Tkinter-compatible hub color.
 
+        are validated using Tkinter's color parsing.
+
+        Args:
+            color: Color value specified in the hub metadata.
+
+        Returns:
+            str: A valid color value accepted by Tkinter.
+
+        Raises:
+            ValueError: If the color is missing, is not a string, or is
+                not recognized as a valid Tkinter color.
+        """
         if color is None:
             raise ValueError(
                 "Hub metadata is missing the required 'color' field."
@@ -150,19 +212,27 @@ class Display:
         return color
 
     def run(self):
+        """Render the simulation map and start the Tkinter event loop.
 
+        Creates the visual representation of hubs and connections,
+        displays the drones present at the current turn, creates the
+        navigation controls, and starts the graphical interface.
+
+        Returns:
+            None: The Tkinter event loop runs until the display window
+            is closed.
+        """
         hubs, connections, nb_drones, neighbours = self.data
+
         hub_coordinates = {}
         x_coordinates = []
         y_coordinates = []
 
         for hub in hubs.values():
-
             color = hub["metadata"].get(
                 "color",
                 "#a699e8"
             )
-
             color = self._get_valid_color(color)
 
             hub_coordinates[hub["name"]] = {
@@ -188,6 +258,7 @@ class Display:
         x_unit = int(
             self.window_width / x_range
         )
+
         y_unit = int(
             self.window_height / y_range
         )
@@ -200,13 +271,10 @@ class Display:
             min(x_coordinates),
             max(x_coordinates) + 1
         ):
-
             if coordinate in x_coordinates:
-
                 x_canvas_coordinates[coordinate] = (
                     position * x_unit + 30
                 )
-
             position += 1
 
         y_canvas_coordinates = {}
@@ -216,23 +284,21 @@ class Display:
             min(y_coordinates),
             max(y_coordinates) + 1
         ):
-
             if coordinate in y_coordinates:
-
                 y_canvas_coordinates[coordinate] = (
                     position * y_unit + 30
                 )
-
             position += 1
+
         canvas_objects = {}
 
         for hub_name, coordinates in hub_coordinates.items():
-
             x_position = (
                 x_canvas_coordinates[
                     coordinates["x"]
                 ]
             )
+
             y_position = (
                 y_canvas_coordinates[
                     coordinates["y"]
@@ -291,7 +357,6 @@ class Display:
         connection_coordinates = {}
 
         for connection_name, connection in connections.items():
-
             from_hub_coords = self.canvas.coords(
                 canvas_objects[
                     connection["from_hub"]
@@ -334,7 +399,6 @@ class Display:
         for connection_name, coordinates in (
             connection_coordinates.items()
         ):
-
             canvas_object = self.canvas.create_line(
                 coordinates["from_x"],
                 coordinates["from_y"],
@@ -353,5 +417,4 @@ class Display:
             self.canvas.tag_lower("connection")
 
         self._create_navigation_buttons()
-
         self.window.mainloop()

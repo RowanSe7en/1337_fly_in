@@ -42,12 +42,15 @@ class Algo:
         allowed_zones: Optional[List[str]] = None,
         skip_blocked: bool = True,
         from_placeholder: str = "none",
-    ) -> Tuple[List[str], float, Dict[str, Tuple[float, str]], List[str]]:
+    ) -> Tuple[
+        List[str], float, Dict[str, Tuple[float, int, str]], List[str]
+    ]:
         """Find the shortest path between two hubs.
 
         Uses a weighted graph traversal where normal and priority zones
         have a cost of one turn and restricted zones have a cost of two
-        turns.
+        turns. Among routes of equal cost, routes that pass through more
+        "priority" zones are preferred.
 
         Args:
             start_hub: Name of the hub where the search starts.
@@ -62,20 +65,24 @@ class Algo:
 
         Returns:
             tuple: A tuple containing the shortest path, its total cost,
-            the path dictionary, and the remaining unvisited hubs.
+            the path dictionary, and the remaining unvisited hubs. Each
+            path dictionary entry is a ``(cost, priority_count, from_hub)``
+            tuple, where ``priority_count`` is the number of "priority"
+            zones visited so far along that path.
         """
         if unvisited_list is None:
             unvisited_list = [v['name'] for v in self.hubs.values()]
 
-        path_dict: Dict[str, Tuple[float, str]] = {}
+        path_dict: Dict[str, Tuple[float, int, str]] = {}
 
         for e in unvisited_list:
-            path_dict[e] = (math.inf, "none")
+            path_dict[e] = (math.inf, 0, "none")
 
         from_hub = start_hub
-        path_dict[from_hub] = (0, from_placeholder)
+        path_dict[from_hub] = (0, 0, from_placeholder)
         initiate_neighbours = list(self.neighbours[from_hub])
         cost: float = 0
+        zone_priority: int = 0
         unvisited_list.remove(from_hub)
 
         while initiate_neighbours:
@@ -89,6 +96,8 @@ class Algo:
                         or zone not in exclude_zones
                     )
                 ):
+                    zone_priority = 0
+
                     for hub_data in self.hubs.values():
                         if hub_data['name'] == zone:
                             if hub_data['metadata']['zone'] == "blocked":
@@ -96,10 +105,12 @@ class Algo:
                                     is_blocked = 1
                                 break
 
-                            elif hub_data['metadata']['zone'] in (
-                                "normal",
-                                "priority",
-                            ):
+                            elif hub_data['metadata']['zone'] == "priority":
+                                cost = 1
+                                zone_priority = 1
+                                break
+
+                            elif hub_data['metadata']['zone'] == "normal":
                                 cost = 1
                                 break
 
@@ -110,48 +121,67 @@ class Algo:
                     if is_blocked:
                         continue
 
+                    candidate_cost = path_dict[from_hub][0] + cost
+                    candidate_priority = (
+                        path_dict[from_hub][1] + zone_priority
+                    )
+
                     if allowed_zones is None:
                         if zone in path_dict:
                             if (
-                                path_dict[zone][0]
-                                > path_dict[from_hub][0] + cost
+                                candidate_cost < path_dict[zone][0]
+                                or (
+                                    candidate_cost == path_dict[zone][0]
+                                    and candidate_priority
+                                    > path_dict[zone][1]
+                                )
                             ):
                                 path_dict[zone] = (
-                                    path_dict[from_hub][0] + cost,
+                                    candidate_cost,
+                                    candidate_priority,
                                     from_hub,
                                 )
                         else:
                             path_dict[zone] = (
-                                path_dict[from_hub][0] + cost,
+                                candidate_cost,
+                                candidate_priority,
                                 from_hub,
                             )
                     else:
                         if zone in path_dict and zone in allowed_zones:
                             if (
-                                path_dict[zone][0]
-                                > path_dict[from_hub][0] + cost
+                                candidate_cost < path_dict[zone][0]
+                                or (
+                                    candidate_cost == path_dict[zone][0]
+                                    and candidate_priority
+                                    > path_dict[zone][1]
+                                )
                             ):
                                 path_dict[zone] = (
-                                    path_dict[from_hub][0] + cost,
+                                    candidate_cost,
+                                    candidate_priority,
                                     from_hub,
                                 )
                         else:
                             if zone in allowed_zones:
                                 path_dict[zone] = (
-                                    path_dict[from_hub][0] + cost,
+                                    candidate_cost,
+                                    candidate_priority,
                                     from_hub,
                                 )
 
-            heap: List[Tuple[float, str, str]] = []
+            heap: List[Tuple[float, int, str, str]] = []
 
-            for zone, (zone_cost, zone_from_hub) in path_dict.items():
+            for zone, (zone_cost, zone_prio, zone_from_hub) in (
+                path_dict.items()
+            ):
                 if zone in unvisited_list:
                     heapq.heappush(
                         heap,
-                        (zone_cost, zone_from_hub, zone)
+                        (zone_cost, -zone_prio, zone_from_hub, zone)
                     )
 
-            _, _, lower_cost_zone_name = heapq.heappop(heap)
+            _, _, _, lower_cost_zone_name = heapq.heappop(heap)
             unvisited_list.remove(lower_cost_zone_name)
             from_hub = lower_cost_zone_name
 
@@ -170,8 +200,8 @@ class Algo:
         path.append(a)
 
         while a != start_hub:
-            path.append(path_dict[a][1])
-            a = path_dict[a][1]
+            path.append(path_dict[a][2])
+            a = path_dict[a][2]
 
         path.reverse()
         path.remove(start_hub)
@@ -434,14 +464,24 @@ class Algo:
         Raises:
             ValueError: If no valid path exists between the start and end
                 zones.
+
+        Note:
+            Among equally-fast paths (same arrival turn), the path that
+            has passed through the most "priority" zones so far is
+            explored first, so the returned path prefers routes through
+            priority zones over equally-fast alternatives that avoid
+            them.
         """
         start = self.start_hub
         end = self.end_hub
-        pq: List[Tuple[int, str, List[str]]] = [(start_turn, start, [])]
+
+        pq: List[Tuple[int, int, str, List[str]]] = [
+            (start_turn, 0, start, [])
+        ]
         visited: Set[Tuple[str, int]] = set()
 
         while pq:
-            turn, zone, path = heapq.heappop(pq)
+            turn, neg_priority, zone, path = heapq.heappop(pq)
 
             if zone == end:
                 return path
@@ -457,7 +497,7 @@ class Algo:
                 if state not in visited:
                     heapq.heappush(
                         pq,
-                        (turn + 1, zone, path + [zone])
+                        (turn + 1, neg_priority, zone, path + [zone])
                     )
 
             for neighbour in self.neighbours.get(zone, []):
@@ -487,10 +527,15 @@ class Algo:
                 state = (neighbour, new_turn)
 
                 if state not in visited:
+                    neighbour_neg_priority = neg_priority - (
+                        1 if zone_type == "priority" else 0
+                    )
+
                     heapq.heappush(
                         pq,
                         (
                             new_turn,
+                            neighbour_neg_priority,
                             neighbour,
                             path + [neighbour] * stay
                         )
